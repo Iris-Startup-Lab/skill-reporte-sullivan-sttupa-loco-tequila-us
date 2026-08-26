@@ -137,7 +137,8 @@ Cuando se procesa la marca Sullivan, el sistema genera simultáneamente:
 
 1. **Dashboard HTML Interactivo Standalone** (`Output/sullivan_dashboard_<periodo>.html`):
    * **Tab 1 — DTC Reconciliation (Vista A):** KPIs globales, barras horizontales de las 9 categorías finales de venta y tabla auditada con control de reconciliación contra *Net Sales*.
-   * **Tab 2 — Club Deep Dive (Vista B):** Análisis de membresías Estate vs Founder's, desglose de paquetes y AOV, casos especiales de revisión (*Admin/POS Marked as Club*) y mapa coroplético de EEUU con proyección cónica Albers y overlay de centroides ZIP.
+   * **Tab 2 — Club Deep Dive (Vista B):** Análisis de membresías Estate vs Founder's, desglose de paquetes y AOV y casos especiales de revisión (*Admin/POS Marked as Club*).
+   * **Tab 3 — Geographic Distribution:** mapa coroplético de EEUU con proyección cónica Albers y overlay de centroides ZIP de los envíos de Club.
    * Totalmente auto-contenido: no requiere internet ni dependencias externas en tiempo de ejecución.
 2. **Reporte Directivo en PDF** (`Output/sullivan_report_<periodo>.pdf`):
    * ~10 páginas en formato carta de alta resolución directiva (ReportLab).

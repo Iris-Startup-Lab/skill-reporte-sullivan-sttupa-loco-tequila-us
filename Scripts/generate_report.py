@@ -14,6 +14,7 @@ Acepta fuentes de datos en formato Excel (.xlsx/.xls) y CSV (.csv).
 """
 
 import argparse
+import re
 import sys
 from pathlib import Path
 from datetime import datetime
@@ -69,7 +70,7 @@ def print_coming_soon(brand_key: str):
 def run_sullivan(order_sales_path: Path, financial_report_path: Path | None,
                  period_label: str, output_dir: Path, output_format: str):
     output_dir.mkdir(parents=True, exist_ok=True)
-    slug = period_label.lower().replace(" ", "_").replace("-", "_")
+    slug = re.sub(r"[^a-z0-9_]+", "_", period_label.lower().strip()).strip("_") or "report"
 
     dashboard_out = output_dir / f"sullivan_dashboard_{slug}.html"
     pdf_out = output_dir / f"sullivan_report_{slug}.pdf"
@@ -198,6 +199,14 @@ def interactive_menu():
 
 
 def main():
+    # Forzar UTF-8 en stdout/stderr: en consolas Windows legacy (cp1252) los
+    # caracteres no-ASCII (—, ó, á, ñ) rompen o se corrompen.
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding="utf-8")
+        except (AttributeError, ValueError, OSError):
+            pass
+
     parser = argparse.ArgumentParser(
         description="Generador agnóstico y orquestador de reportes ejecutivos para marcas."
     )

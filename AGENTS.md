@@ -48,10 +48,10 @@ Todo agente que atienda una solicitud de generación de reportes en este reposit
 
 ### 1. OpenCode (CLI / IDE Agent)
 
-- **Modelos recomendados**:
-  - **DeepSeek V3 / R1 / V4 Pro**
-  - **Kimi 3 / K1.5**
-- **Instrucciones para OpenCode**:
+* **Modelos recomendados**:
+  * **DeepSeek V3 / R1 / V4 Pro**
+  * **Kimi 3 / K1.5**
+* **Instrucciones para OpenCode**:
   1. Abrir la carpeta del proyecto en OpenCode.
   2. Detectará automáticamente `SKILL.md`, `README.md` y `AGENTS.md`.
   3. Ejecutar la llamada activando el entorno conda antes de invocar Python:
@@ -64,10 +64,10 @@ Todo agente que atienda una solicitud de generación de reportes en este reposit
 
 ### 2. Antigravity (Google DeepMind Agentic IDE)
 
-- **Modelos recomendados**:
-  - **Gemini 3.7 Flash** (Predeterminado para alta velocidad y precisión de código)
-  - **Gemini 3.1 Pro / Ultra**
-- **Instrucciones para Antigravity**:
+* **Modelos recomendados**:
+  * **Gemini 3.7 Flash** (Predeterminado para alta velocidad y precisión de código)
+  * **Gemini 3.1 Pro / Ultra**
+* **Instrucciones para Antigravity**:
   1. Antigravity descubre automáticamente las skills en la raíz de trabajo (`SKILL.md`) o en `.agents/skills/reporte-sullivan-sttupa-loco-tequila-us/SKILL.md`.
   2. Al ejecutar comandos en la terminal de Antigravity, anteponer la activación del hook de Conda.
   3. Para datos personalizados provistos por el usuario en CSV o Excel:
@@ -80,16 +80,18 @@ Todo agente que atienda una solicitud de generación de reportes en este reposit
 
 ### 3. Claude Desktop y Claude Code
 
-- **Modelos recomendados**:
-  - **Claude Sonnet**
-  - **Claude Opus**
-- **Configuración en Claude Desktop**:
-  - Servidores MCP: `@modelcontextprotocol/server-filesystem` y `@modelcontextprotocol/server-powershell`.
-  - Cargar `SKILL.md` en el espacio de conocimiento (*Project Knowledge*).
-- **Configuración en Claude Code (CLI)**:
-  - Abrir la terminal en la raíz del proyecto y lanzar `claude`.
-  - Claude Code ejecutará el comando del orquestador:
+* **Modelos recomendados**:
+  * **Claude Sonnet**
+  * **Claude Opus**
+* **Configuración en Claude Desktop**:
+  * Servidores MCP: `@modelcontextprotocol/server-filesystem` y `@modelcontextprotocol/server-powershell`.
+  * Cargar `SKILL.md` en el espacio de conocimiento (*Project Knowledge*).
+* **Configuración en Claude Code (CLI)**:
+  * Abrir la terminal en la raíz del proyecto y lanzar `claude`.
+  * Claude Code ejecutará el comando del orquestador:
 
     ```powershell
     python Scripts/generate_report.py --brand sullivan --data-source demo --output-dir Output
     ```
+
+### 4. Los cambios en Git los hace el usuario no el agente

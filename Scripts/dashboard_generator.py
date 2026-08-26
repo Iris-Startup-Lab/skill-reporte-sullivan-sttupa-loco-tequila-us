@@ -295,11 +295,27 @@ def build_vista_b(d: pd.DataFrame) -> dict:
     estate_total = float(club_df[club_df["Final Category"] == "Estate Club"][amt_col].sum())
     founders_total = float(club_df[club_df["Final Category"] == "Founder's Club"][amt_col].sum())
 
+    # Casos de revisión (Admin/POS Marked as Club): una fila POR ORDEN, con el
+    # SubTotal agregado a nivel orden (antes salía una fila por línea de ítem).
     review = d[d["Final Category"] == "Club - Review (Admin/POS)"]
-    review_cols = [c for c in ("Order Number", "Order Submitted Date", "Channel", amt_col) if c in review.columns]
-    review_records = review[review_cols].rename(columns={amt_col: "SubTotal"})
-    if "Order Submitted Date" in review_records.columns:
-        review_records["Order Submitted Date"] = review_records["Order Submitted Date"].astype(str)
+    review_records = []
+    if not review.empty:
+        order_col = "Order Number" if "Order Number" in review.columns else "Id"
+        agg = {amt_col: "sum"}
+        if "Order Submitted Date" in review.columns:
+            agg["Order Submitted Date"] = "first"
+        if "Channel" in review.columns:
+            agg["Channel"] = "first"
+        review_records = review.groupby(order_col, as_index=False).agg(agg).rename(
+            columns={order_col: "Order Number", amt_col: "SubTotal"}
+        )
+        review_records = review_records[
+            [c for c in ("Order Number", "Order Submitted Date", "Channel", "SubTotal") if c in review_records.columns]
+        ]
+        review_records["SubTotal"] = review_records["SubTotal"].round(2)
+        if "Order Submitted Date" in review_records.columns:
+            review_records["Order Submitted Date"] = review_records["Order Submitted Date"].astype(str)
+        review_records = review_records.to_dict(orient="records")
 
     return {
         "packages": g["Club Package Group"].tolist(),
@@ -309,7 +325,7 @@ def build_vista_b(d: pd.DataFrame) -> dict:
         "colors": [CLUB_PACKAGE_COLORS.get(p, "#8C2F2F") for p in g["Club Package Group"]],
         "estate_total": round(estate_total, 2),
         "founders_total": round(founders_total, 2),
-        "review_cases": review_records.to_dict(orient="records"),
+        "review_cases": review_records,
     }
 
 
@@ -391,7 +407,8 @@ def build_reconciliation(vista_a: dict, financial_report_path: str | None) -> di
 
     ok = None
     if net_sales_financial is not None:
-        ok = bool(np.isclose(total_dtc, net_sales_financial, atol=1.0))
+        # Tolerancia al centavo (guía: cuadre al centavo, tolerancia cero).
+        ok = bool(np.isclose(total_dtc, net_sales_financial, atol=0.005))
 
     return {
         "total_dtc": total_dtc,
@@ -400,11 +417,41 @@ def build_reconciliation(vista_a: dict, financial_report_path: str | None) -> di
     }
 
 
+def _compute_state_centroids(paths: dict) -> dict:
+    """
+    Calcula el centroide (área, fórmula del shoelace) de cada estado a partir de
+    los paths SVG ya proyectados en Albers. Se usa para etiquetar los estados
+    cuando el GeoJSON embebido no incluye la clave 'centroids'.
+    """
+    pts_re = re.compile(r"[MLZ]\s*([-0-9.]+)\s*,\s*([-0-9.]+)")
+    centroids = {}
+    for code, path_d in paths.items():
+        pts = [(float(x), float(y)) for x, y in pts_re.findall(path_d)]
+        if len(pts) < 3:
+            continue
+        area2 = 0.0
+        cx = 0.0
+        cy = 0.0
+        n = len(pts)
+        for i in range(n):
+            x0, y0 = pts[i]
+            x1, y1 = pts[(i + 1) % n]
+            cross = x0 * y1 - x1 * y0
+            area2 += cross
+            cx += (x0 + x1) * cross
+            cy += (y0 + y1) * cross
+        if abs(area2) < 1e-9:
+            continue
+        area2 *= 0.5
+        centroids[code] = (cx / (6.0 * area2), cy / (6.0 * area2))
+    return centroids
+
+
 def render_svg_map_html(geo: dict) -> str:
     """Genera el SVG del mapa coroplético de EE.UU. pre-renderizado estáticamente con escala Cabernet."""
     geo_dict = json.loads(US_STATES_GEO_JSON)
     paths = geo_dict.get("paths", {})
-    centroids = geo_dict.get("centroids", {})
+    centroids = geo_dict.get("centroids", {}) or _compute_state_centroids(paths)
 
     state_sub = dict(zip(geo.get("states", []), geo.get("state_subtotal", [])))
     state_ord = dict(zip(geo.get("states", []), geo.get("state_orders", [])))
@@ -1112,6 +1159,13 @@ def generate(order_sales_path: str, financial_report_path: str | None,
 
 
 def main():
+    # Forzar UTF-8 en stdout/stderr (evita corrupción o UnicodeEncodeError en consolas Windows legacy).
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding="utf-8")
+        except (AttributeError, ValueError, OSError):
+            pass
+
     ap = argparse.ArgumentParser(description="Genera el dashboard base Vista A + Vista B de Sullivan.")
     ap.add_argument("--order-sales", required=True, help="Ruta a Apr_OrderSales.xlsx (o equivalente simulado).")
     ap.add_argument("--financial-report", default=None, help="Ruta a Apr_FinancialReport.xlsx (opcional).")

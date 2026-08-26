@@ -207,14 +207,16 @@ def simulate_orders(cfg):
     pkgs_assigned = rng.choice(pkg_names, size=len(club_idx), p=pkg_probs)
     for i, pkg in zip(club_idx, pkgs_assigned):
         info = CLUB_PACKAGE_SHARE[pkg]
-        club_packages[i] = pkg
-        if info["club"] == "Review":
-            # Caso anómalo: marcado como Club desde POS/Admin -> Sales Attribute distinto
-            club_titles[i] = "Founder's" if rng.random() < 0.5 else "Estate"
-            sales_attribute[i] = "POS"
-        else:
-            club_titles[i] = info["club"]
         order_subtotal[i] = max(50, rng.normal(info["avg"], info["std"]))
+        if info["club"] == "Review":
+            # Caso anómalo: marcado como Club desde POS/Admin -> Sales Attribute distinto.
+            # Club Title / Club Package quedan VACÍOS (espejo del export real), para que la
+            # cascada de clasificación lo detecte como 'Club - Review (Admin/POS)' y el
+            # agregado por club lo rotule como 'Admin/POS Order Marked as Club'.
+            sales_attribute[i] = "POS"
+            continue
+        club_packages[i] = pkg
+        club_titles[i] = info["club"]
 
     for chan in ("POS", "Web", "Inbound"):
         idx = np.where(channels == chan)[0]
@@ -286,18 +288,7 @@ def explode_to_items(orders):
 
     items = pd.DataFrame(rows)
 
-    # -- Fees / impuestos / envío a nivel orden, distribuidos a última línea de cada orden
-    items["SubTotal"] = items.groupby("Order Number")["Product SubTotal"].transform("sum")
-    tax_rate = rng.uniform(*STATE_TAX_RATE_BAND, size=len(items))
-    ship_rate = items["Channel"].map(SHIP_RATE_BY_CHANNEL).fillna(0.02).to_numpy()
-    items["Tax Total"] = (items["SubTotal"] * tax_rate).round(2)
-    items["Shipping Total"] = (items["SubTotal"] * ship_rate).round(2)
-    items["Cost of Good"] = (items["Product SubTotal"] * rng.uniform(0.18, 0.28, size=len(items))).round(2)
-    items["Total"] = (items["SubTotal"] + items["Tax Total"] + items["Shipping Total"]).round(2)
-    items["Tip"] = 0.0
-    items["Total After Tip"] = items["Total"]
-
-    # -- Regla crítica de desambiguación: duplicar (Order Number + SKU) en ~2% de casos
+    # -- Regla crítica de desambiguación: duplicar (Order Number + SKU) en ~1.5% de casos
     #    para simular fielmente los "9 casos" de renglones repetidos del dataset real
     dup_candidates = items.groupby(["Order Number", "SKU"]).size()
     dup_candidates = dup_candidates[dup_candidates == 1].reset_index()
@@ -309,8 +300,27 @@ def explode_to_items(orders):
             base = items[(items["Order Number"] == c["Order Number"]) & (items["SKU"] == c["SKU"])].iloc[0].copy()
             base["Quantity"] = max(1.0, base["Quantity"] + rng.integers(1, 3))
             base["Price"] = round(base["Price"] * rng.uniform(0.9, 1.1), 2)
+            base["Product SubTotal"] = round(base["Quantity"] * base["Price"], 2)
             extra_rows.append(base)
         items = pd.concat([items, pd.DataFrame(extra_rows)], ignore_index=True)
+
+    # -- Métricas a nivel línea / orden (espejo del export real de OrderSales).
+    #    SubTotal queda a nivel ORDEN (repetido por línea), como en el export real.
+    items["SubTotal"] = items.groupby("Order Number")["Product SubTotal"].transform("sum")
+    items["Cost of Good"] = (items["Product SubTotal"] * rng.uniform(0.18, 0.28, size=len(items))).round(2)
+
+    # -- Impuestos y envío calculados UNA sola vez por orden (no por línea), para
+    #    que sumar por canal/tag/club no sobrecuente. Se replican a cada línea.
+    order_meta = items.drop_duplicates("Order Number")[["Order Number", "Channel", "SubTotal"]].copy()
+    order_meta["Tax Total"] = (order_meta["SubTotal"] * rng.uniform(*STATE_TAX_RATE_BAND, size=len(order_meta))).round(2)
+    order_meta["Shipping Total"] = (order_meta["SubTotal"] * order_meta["Channel"].map(SHIP_RATE_BY_CHANNEL).fillna(0.02)).round(2)
+    order_meta["Total"] = (order_meta["SubTotal"] + order_meta["Tax Total"] + order_meta["Shipping Total"]).round(2)
+    order_meta = order_meta[["Order Number", "Tax Total", "Shipping Total", "Total"]]
+    items = items.drop(columns=["Tax Total", "Shipping Total", "Total"], errors="ignore").merge(
+        order_meta, on="Order Number", how="left"
+    )
+    items["Tip"] = 0.0
+    items["Total After Tip"] = items["Total"]
 
     return items
 
@@ -329,9 +339,16 @@ def build_financial_report(items):
     df = items[[
         "Order Number", "Order Submitted Date", "Order Paid Date", "Channel",
         "Sales Attribute", "Club Title", "Product Title", "Type", "SKU",
-        "Quantity", "Price", "Cost of Good", "SubTotal", "Shipping Total",
-        "Tax Total", "Total",
+        "Quantity", "Price", "Cost of Good",
     ]].copy()
+    # SubTotal a nivel LÍNEA (= Product SubTotal) para que la suma cuadre con el
+    # Net Sales de OrderSales (espejo del export real de FinancialReport, donde
+    # cada renglón lleva su venta neta). El envío/impuesto/total de cada orden se
+    # atribuye a la primera línea de la orden, tal como hace Commerce7.
+    df["SubTotal"] = items["Product SubTotal"].round(2)
+    order_meta = items.drop_duplicates("Order Number")[["Order Number", "Shipping Total", "Tax Total", "Total"]].copy()
+    df = df.merge(order_meta, on="Order Number", how="left")
+    df.loc[df.duplicated("Order Number", keep="first"), ["Shipping Total", "Tax Total", "Total"]] = 0.0
     df = df.rename(columns={"Club Title": "Club Name"})
     df["Total Discount"] = 0.0
     df["Tip Total"] = 0.0
@@ -340,22 +357,32 @@ def build_financial_report(items):
 
 
 def _aggregate_control(items, group_col, rename_to):
-    g = items.groupby(group_col, dropna=False).agg(
+    # Nivel orden: cada orden cuenta UNA sola vez (espejo de los agregados de C7).
+    per_order = items.groupby(["Order Number", group_col], dropna=False).agg(
         **{
-            "Order Count": ("Order Number", "nunique"),
             "Sub Total": ("Product SubTotal", "sum"),
             "Cost of Good Total": ("Cost of Good", "sum"),
-            "Ship Total": ("Shipping Total", "sum"),
+            "Ship Total": ("Shipping Total", "first"),
+            "Tax Total": ("Tax Total", "first"),
+        }
+    ).reset_index()
+    per_order["Total"] = (per_order["Sub Total"] + per_order["Ship Total"] + per_order["Tax Total"]).round(2)
+    g = per_order.groupby(group_col, dropna=False).agg(
+        **{
+            "Order Count": ("Order Number", "nunique"),
+            "Sub Total": ("Sub Total", "sum"),
+            "Cost of Good Total": ("Cost of Good Total", "sum"),
+            "Ship Total": ("Ship Total", "sum"),
             "Tax Total": ("Tax Total", "sum"),
+            "Total": ("Total", "sum"),
         }
     ).reset_index().rename(columns={group_col: rename_to})
     g["Bottle Deposit Total"] = 0.0
     g["Duty Total"] = 0.0
-    g["Total"] = (g["Sub Total"] + g["Ship Total"] + g["Tax Total"]).round(2)
     g["Tip Total"] = 0.0
     g["Total After Tip"] = g["Total"]
     total_sub = g["Sub Total"].sum()
-    g["Percentage of Sales"] = (g["Sub Total"] / total_sub * 100).round(2)
+    g["Percentage of Sales"] = (g["Sub Total"] / total_sub * 100).round(2) if total_sub else 0.0
     ordered_cols = [rename_to, "Order Count", "Percentage of Sales", "Sub Total",
                     "Cost of Good Total", "Ship Total", "Tax Total", "Bottle Deposit Total",
                     "Duty Total", "Total", "Tip Total", "Total After Tip"]
@@ -367,17 +394,18 @@ def build_sales_by_channel(items):
 
 
 def build_sales_by_club(items):
-    club_items = items[items["Club Title"] != ""]
+    # Canal Club (incluye el caso anómalo Admin/POS Marked as Club: Club Title y
+    # Club Package vacíos, que C7 rotula en el agregado con su nombre).
+    club_items = items[items["Channel"] == "Club"].copy()
+    club_items.loc[club_items["Club Package"] == "", "Club Package"] = "Admin/POS Order Marked as Club"
     out = _aggregate_control(club_items, "Club Package", "Club")
     return out
 
 
 def build_sales_by_tag(items):
-    # Nota: agrega por orden única (un tag por orden), no por línea, para que
+    # Agrega por orden única (un tag por orden), no por línea, para que
     # Order Count / Sub Total cuadren con la lógica real de Commerce7.
-    per_order = items.drop_duplicates("Order Number")[["Order Number", "Order Tag"]]
-    merged = items.merge(per_order, on="Order Number", suffixes=("", "_orderlevel"))
-    return _aggregate_control(items.assign(**{"Order Tag": items["Order Tag"]}), "Order Tag", "Order Tag")
+    return _aggregate_control(items, "Order Tag", "Order Tag")
 
 
 # ==============================================================================
@@ -389,6 +417,14 @@ def validate(items, by_channel, by_club, by_tag):
         "OrderSales SubTotal == SalesbyChannel SubTotal": np.isclose(total_items, by_channel["Sub Total"].sum(), atol=1.0),
         "OrderSales SubTotal == SalesbyTag SubTotal": np.isclose(total_items, by_tag["Sub Total"].sum(), atol=1.0),
         "N° órdenes únicas == Order Count total (channel)": items["Order Number"].nunique() == by_channel["Order Count"].sum(),
+        "Club SubTotal == SalesbyClub SubTotal": np.isclose(
+            items.loc[items["Channel"] == "Club", "Product SubTotal"].sum(),
+            by_club["Sub Total"].sum(),
+            atol=1.0,
+        ),
+        "FinancialReport SubTotal == OrderSales SubTotal": np.isclose(
+            build_financial_report(items)["SubTotal"].sum(), total_items, atol=1.0
+        ),
     }
     print("\n--- VALIDACIÓN DE RECONCILIACIÓN ---")
     for k, v in checks.items():

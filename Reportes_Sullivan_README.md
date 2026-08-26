@@ -24,9 +24,9 @@ justo lo observado en abril real).
 ## Archivos y qué generan
 
 | Archivo | Genera | Depende de |
-|---|---|---|
+| --- | --- | --- |
 | `Scripts/sullivan_c7_simulator.py` | Datos sintéticos de los 5 exports (para Colab) | pandas, openpyxl |
-| `Scripts/dashboard_generator.py` | 1 HTML standalone (2 pestañas) | pandas, openpyxl; internet solo la 1ª vez (cachea ZIPs) |
+| `Scripts/dashboard_generator.py` | 1 HTML standalone (3 pestañas) | pandas, openpyxl; internet solo la 1ª vez (cachea ZIPs) |
 | `Scripts/pdf_generator.py` | 1 PDF (~10 páginas) | pandas, reportlab |
 | `Scripts/zcta_centroids.csv` | Caché de lat/lon por ZIP (Census Gazetteer) | se regenera solo si falta |
 
@@ -37,6 +37,7 @@ que se puedan editar de forma independiente al construir la skill.
 ## `dashboard_generator.py` — Dashboard HTML
 
 Uso:
+
 ```
 python dashboard_generator.py \
   --order-sales "Client_Data/Sullivan_data/Apr_OrderSales.xlsx" \
@@ -50,8 +51,11 @@ Financial Report, estado de reconciliación, # órdenes) + barras horizontales
 de las 9 categorías + tabla con fila TOTAL resaltada.
 
 **Tab 2 — Club Deep Dive (Vista B):** Estate vs Founder's, desglose por
-paquete (4/6 Bottle, 3 Bottle, Half/Single/Double Case) con AOV, tabla de
-"casos de revisión" (Admin/POS Marked as Club), y **Geographic Distribution**:
+paquete (4/6 Bottle, 3 Bottle, Half/Single/Double Case) con AOV y tabla de
+"casos de revisión" (Admin/POS Marked as Club).
+
+**Tab 3 — Geographic Distribution:** el mapa coroplético de envíos de Club:
+
 - Choropleth real por estado (fronteras de EEUU embebidas como paths SVG
   estáticos — no depende de ningún CDN en tiempo de ejecución).
 - Puntos tan por ZIP encima del choropleth (tamaño = # órdenes), proyectados
@@ -70,7 +74,8 @@ cuadra al centavo con la auditoría de la guía.
 
 ## `pdf_generator.py` — Reporte PDF
 
-Uso:
+Uso del generador principal:
+
 ```
 python pdf_generator.py \
   --order-sales "Client_Data/Sullivan_data/Apr_OrderSales.xlsx" \

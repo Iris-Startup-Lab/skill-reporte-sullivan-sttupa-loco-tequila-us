@@ -451,9 +451,25 @@ def build_pdf(order_sales_path, financial_report_path, output_path, period_label
     gp["aov"] = np.where(gp["orders"] > 0, (gp["subtotal"] / gp["orders"]).round(2), 0)
     # Ordenar paquetes de mayor a menor por venta neta (SubTotal)
     gp = gp.sort_values(by="subtotal", ascending=False).reset_index(drop=True)
+    # Casos de revisión (Admin/POS Marked as Club): una fila POR ORDEN, con el
+    # SubTotal agregado a nivel orden (antes salía una fila por línea de ítem).
     review = df[df["Final Category"] == "Club - Review (Admin/POS)"]
-    review_cols = [c for c in ("Order Number", "Order Submitted Date", "Channel", amt_col) if c in review.columns]
-    review_cases = review[review_cols].astype(str).to_dict(orient="records")
+    review_cases = []
+    if not review.empty:
+        order_col = "Order Number" if "Order Number" in review.columns else "Id"
+        agg = {amt_col: "sum"}
+        if "Order Submitted Date" in review.columns:
+            agg["Order Submitted Date"] = "first"
+        if "Channel" in review.columns:
+            agg["Channel"] = "first"
+        review_cases = review.groupby(order_col, as_index=False).agg(agg).rename(
+            columns={order_col: "Order Number", amt_col: "SubTotal"}
+        )
+        review_cases = review_cases[
+            [c for c in ("Order Number", "Order Submitted Date", "Channel", "SubTotal") if c in review_cases.columns]
+        ]
+        review_cases["SubTotal"] = review_cases["SubTotal"].round(2)
+        review_cases = review_cases.astype(str).to_dict(orient="records")
     vista_b = {
         "packages": gp["Club Package Group"].tolist(), "orders": gp["orders"].astype(int).tolist(),
         "subtotal": gp["subtotal"].round(2).tolist(), "aov": gp["aov"].tolist(),
@@ -472,7 +488,8 @@ def build_pdf(order_sales_path, financial_report_path, output_path, period_label
                     break
         except Exception:
             pass
-    match = np.isclose(total_dtc, net_sales_financial, atol=1.0) if net_sales_financial is not None else None
+    # Tolerancia al centavo (guía: cuadre al centavo, tolerancia cero).
+    match = np.isclose(total_dtc, net_sales_financial, atol=0.005) if net_sales_financial is not None else None
     reconciliation = {"net_sales_financial": net_sales_financial, "match": bool(match) if match is not None else None}
 
     out = Path(output_path)
@@ -498,6 +515,13 @@ def build_pdf(order_sales_path, financial_report_path, output_path, period_label
 
 
 def main():
+    # Forzar UTF-8 en stdout/stderr (evita corrupción o UnicodeEncodeError en consolas Windows legacy).
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding="utf-8")
+        except (AttributeError, ValueError, OSError):
+            pass
+
     ap = argparse.ArgumentParser(description="Genera el PDF base Vista A + Vista B de Sullivan.")
     ap.add_argument("--order-sales", required=True)
     ap.add_argument("--financial-report", default=None)

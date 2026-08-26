@@ -108,7 +108,8 @@ El proceso genera simultáneamente dos entregables complementarios en la carpeta
 
 1. **Dashboard HTML Interactivo Standalone** (`sullivan_dashboard_<periodo>.html`):
    * **Pestaña 1 (DTC Reconciliation - Vista A):** KPIs ejecutivos, desglose horizontal de las 9 categorías finales de venta y tabla auditada con control de discrepancias contra *Net Sales*.
-   * **Pestaña 2 (Club Deep Dive - Vista B):** Análisis de membresías Estate vs Founder's, tabla de paquetes y AOV, casos especiales de revisión (*Admin/POS Marked as Club*) y mapa coroplético de EEUU con proyección Albers y overlay de centroides ZIP.
+   * **Pestaña 2 (Club Deep Dive - Vista B):** Análisis de membresías Estate vs Founder's, tabla de paquetes y AOV, y casos especiales de revisión (*Admin/POS Marked as Club*).
+   * **Pestaña 3 (Geographic Distribution):** Mapa coroplético de EEUU con proyección Albers y overlay de centroides ZIP de los envíos de Club.
 2. **Reporte Directivo en PDF** (`sullivan_report_<periodo>.pdf`):
    * Documento formal de ~10 páginas generado con ReportLab.
    * Portada con sello de reconciliación, resumen ejecutivo, cascada de clasificación (prioridades 1-9), tabla detallada y apéndice técnico.

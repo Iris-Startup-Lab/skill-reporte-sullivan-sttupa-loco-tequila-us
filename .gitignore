@@ -1,5 +1,6 @@
 # Archivos a evitar en el repositorio
 *.csv
+!Scripts/zcta_centroids.csv
 *.xlsx
 *.xls
 *.twb
