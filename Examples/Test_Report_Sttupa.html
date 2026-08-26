@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sttupa Estate — Occupancy &amp; Sales (Test Data)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inria+Serif:ital,wght@0,300;0,400;0,700;1,400&family=Inria+Sans:wght@300;400;700&family=Oswald:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --brand-charcoal:#3F3D3B; --brand-copper:#C7AC96; --brand-stone-gray:#8B8D8E;
+    --header-text:#FFFFFF; --page-bg:#FFFFFF; --rule-line:#D9D9D9;
+    --highlight-cream:#E3D3C2; --neg-value:#BF001C; --pos-value:#3F3D3B;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin:0; background:#F4F2EF; color:var(--brand-charcoal);
+    font-family:'Inria Sans', sans-serif; font-size:13px;
+  }
+  .page {
+    max-width:1040px; margin:24px auto 60px; background:var(--page-bg);
+    box-shadow:0 10px 40px rgba(0,0,0,.12); position:relative; padding-bottom:40px;
+  }
+  .band {
+    background:var(--brand-charcoal); color:var(--header-text);
+    padding:26px 40px; display:flex; align-items:center; justify-content:space-between;
+  }
+  .band h1 {
+    font-family:'Oswald', sans-serif; letter-spacing:.12em; text-transform:uppercase;
+    font-size:26px; margin:0; font-weight:500;
+  }
+  .band .sub { font-size:13px; opacity:.85; margin-top:6px; letter-spacing:.03em; }
+  .band img { height:46px; }
+  .section { padding:28px 40px 6px; }
+  .section h2 {
+    font-family:'Inria Serif', serif; color:var(--brand-charcoal);
+    font-size:21px; margin:0 0 2px; letter-spacing:.02em;
+  }
+  .section .subtitle { color:var(--brand-stone-gray); font-size:12.5px; margin-bottom:18px; }
+  .grid-2 { display:grid; grid-template-columns: 320px 1fr; gap:28px; padding:0 40px; align-items:start; }
+  .donut-wrap { display:flex; flex-direction:column; align-items:center; gap:16px; }
+  .donut {
+    width:220px; height:220px; border-radius:50%;
+    background: conic-gradient(#E7C372 0.00deg 72.18deg, #BF001C 72.18deg 108.63deg, #969150 108.63deg 164.28deg, #E3D3C2 164.28deg 249.89deg, #451B0F 249.89deg 360.00deg);
+    display:flex; align-items:center; justify-content:center; position:relative;
+  }
+  .donut::after {
+    content:''; position:absolute; width:130px; height:130px; border-radius:50%;
+    background:#fff;
+  }
+  .donut .center { position:absolute; text-align:center; z-index:2; }
+  .donut .center .tot { font-family:'Inria Serif',serif; font-size:22px; font-weight:700; }
+  .donut .center .lbl { font-size:10.5px; color:var(--brand-stone-gray); letter-spacing:.05em; text-transform:uppercase; }
+  .legend { width:100%; }
+  .legend-item { display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--rule-line); font-size:12.5px; }
+  .legend-item .dot { width:11px; height:11px; border-radius:50%; flex-shrink:0; }
+  .legend-item .lname { flex:1; }
+  .legend-item .lval { font-weight:700; }
+  .legend-item .pill { background:#F6E2E2; color:var(--neg-value); border-radius:10px; padding:1px 8px; font-size:11px; font-weight:700; min-width:34px; text-align:center; }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  th, td { padding:7px 8px; text-align:left; border-bottom:1px solid var(--rule-line); }
+  th { font-family:'Inria Serif', serif; font-weight:700; font-size:11.5px; color:var(--brand-charcoal); }
+  td.num, th.num { text-align:right; }
+  td.rowlabel { font-weight:600; }
+  .total-cell { font-weight:700; }
+  .pct { color:var(--brand-stone-gray); font-size:10.5px; }
+  tr.total-row td { background:var(--highlight-cream); font-weight:700; }
+  .barband {
+    background:var(--brand-charcoal); color:#fff; padding:9px 16px; font-family:'Inria Serif', serif;
+    font-weight:700; font-size:13px; margin:26px 40px 0; letter-spacing:.01em;
+  }
+  .chart-box { padding:12px 40px 0; }
+  .foot-note { padding:8px 40px 0; font-size:10.5px; color:var(--brand-stone-gray); font-style:italic; }
+  .kpis { display:flex; gap:16px; padding:0 40px 8px; margin-top:4px; }
+  .kpi {
+    flex:1; border:1px solid var(--rule-line); border-radius:6px; padding:12px 16px;
+    background:#FBFAF8;
+  }
+  .kpi .k-label { font-size:10.5px; color:var(--brand-stone-gray); text-transform:uppercase; letter-spacing:.05em; }
+  .kpi .k-val { font-family:'Inria Serif', serif; font-size:20px; font-weight:700; margin-top:2px; }
+  .kpi .k-delta { font-size:11px; margin-top:2px; }
+  .kpi .k-delta.pos { color:var(--pos-value); }
+  .kpi .k-delta.neg { color:var(--neg-value); }
+  .pagenum { position:absolute; right:40px; bottom:14px; font-size:11px; color:var(--brand-stone-gray); }
+  .watermark { text-align:center; padding:14px 0 0; color:var(--brand-stone-gray); font-size:11px; letter-spacing:.08em; text-transform:uppercase; }
+  .legend-bottom { display:flex; gap:18px; padding:6px 40px 0; font-size:11.5px; flex-wrap:wrap; }
+  .legend-bottom span.sw { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; vertical-align:-1px; }
+</style>
+</head>
+<body>
+<div class="watermark">Test data · not real bookings · generated to preview Design_sttupa.md</div>
+<div class="page">
+  <div class="band">
+    <div>
+      <h1>Occupancy &amp; Sales</h1>
+      <div class="sub">Week 34-2026 &middot; Aug 17 &ndash; Aug 23, 2026</div>
+    </div>
+    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAArcAAANeCAYAAAAIoSaJAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAA+5pVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDEwLjAtYzAwMCA3OS5kMjBlNDY2MzAsIDIwMjUvMTIvMDktMDI6MTE6MjMgICAgICAgICI+IDxyZGY6UkRGIHhtbG5zOnJkZj0iaHR0cDovL3d3dy53My5vcmcvMTk5OS8wMi8yMi1yZGYtc3ludGF4LW5zIyI+IDxyZGY6RGVzY3JpcHRpb24gcmRmOmFib3V0PSIiIHhtbG5zOnhtcD0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wLyIgeG1sbnM6ZGM9Imh0dHA6Ly9wdXJsLm9yZy9kYy9lbGVtZW50cy8xLjEvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIDI3LjkgKE1hY2ludG9zaCkiIHhtcDpDcmVhdGVEYXRlPSIyMDI2LTA4LTI2VDA5OjU3OjM3LTA2OjAwIiB4bXA6TW9kaWZ5RGF0ZT0iMjAyNi0wOC0yNlQxNjowMzoxNC0wNjowMCIgeG1wOk1ldGFkYXRhRGF0ZT0iMjAyNi0wOC0yNlQxNjowMzoxNC0wNjowMCIgZGM6Zm9ybWF0PSJpbWFnZS9wbmciIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6RUIyNjdCNjg5OThCMTFGMUE2ODhFQUNFOEIwMTZFNTkiIHhtcE1NOkRvY3VtZW50SUQ9InhtcC5kaWQ6RUIyNjdCNjk5OThCMTFGMUE2ODhFQUNFOEIwMTZFNTkiPiA8eG1wTU06RGVyaXZlZEZyb20g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" alt="Sttupa">
+  </div>
+
+  <div class="section">
+    <h2>Weekly Summary — By Room</h2>
+    <div class="subtitle">Sttupa Estate &middot; Napa Valley &middot; all figures in USD</div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="k-label">Total Net Sales</div><div class="k-val">$243,900</div><div class="k-delta pos">+6.2% vs Prior Week</div></div>
+    <div class="kpi"><div class="k-label">Occupancy</div><div class="k-val">78%</div><div class="k-delta pos">+3 pts vs Plan</div></div>
+    <div class="kpi"><div class="k-label">Nights Sold</div><div class="k-val">184</div><div class="k-delta neg">-4 vs Prior Week</div></div>
+    <div class="kpi"><div class="k-label">ADR</div><div class="k-val">$1,412.50</div><div class="k-delta pos">+1.8% vs Plan</div></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="donut-wrap">
+      <div class="donut"><div class="center"><div class="tot">$243,900</div><div class="lbl">Total Net Sales</div></div></div>
+      <div class="legend"><div class="legend-item">
+        <span class="dot" style="background:#E7C372"></span>
+        <span class="lname">Pa Vinea</span>
+        <span class="lval">$48,900</span>
+        <span class="pill">20%</span>
+    </div><div class="legend-item">
+        <span class="dot" style="background:#BF001C"></span>
+        <span class="lname">Loco</span>
+        <span class="lval">$24,700</span>
+        <span class="pill">10%</span>
+    </div><div class="legend-item">
+        <span class="dot" style="background:#969150"></span>
+        <span class="lname">Vineyard</span>
+        <span class="lval">$37,700</span>
+        <span class="pill">15%</span>
+    </div><div class="legend-item">
+        <span class="dot" style="background:#E3D3C2"></span>
+        <span class="lname">Sanctuary</span>
+        <span class="lval">$58,000</span>
+        <span class="pill">24%</span>
+    </div><div class="legend-item">
+        <span class="dot" style="background:#451B0F"></span>
+        <span class="lname">Poetry</span>
+        <span class="lval">$74,600</span>
+        <span class="pill">31%</span>
+    </div></div>
+    </div>
+    <div>
+      <table>
+        <thead><tr><th>Channel</th><th class="num" style="border-bottom:3px solid #E7C372">Pa Vinea</th><th class="num" style="border-bottom:3px solid #BF001C">Loco</th><th class="num" style="border-bottom:3px solid #969150">Vineyard</th><th class="num" style="border-bottom:3px solid #E3D3C2">Sanctuary</th><th class="num" style="border-bottom:3px solid #451B0F">Poetry</th><th class="num">Total</th></tr></thead>
+        <tbody><tr><td class="rowlabel">Direct Reservation</td><td class="num">$18,500</td><td class="num">$9,200</td><td class="num">$14,300</td><td class="num">$21,000</td><td class="num">$26,800</td><td class="num total-cell">$89,800 <span class="pct">(37%)</span></td></tr><tr><td class="rowlabel">OTA</td><td class="num">$12,100</td><td class="num">$7,300</td><td class="num">$9,800</td><td class="num">$15,200</td><td class="num">$18,900</td><td class="num total-cell">$63,300 <span class="pct">(26%)</span></td></tr><tr><td class="rowlabel">Travel Agency</td><td class="num">$6,400</td><td class="num">$3,100</td><td class="num">$5,200</td><td class="num">$8,100</td><td class="num">$10,200</td><td class="num total-cell">$33,000 <span class="pct">(14%)</span></td></tr><tr><td class="rowlabel">Corporate / Events</td><td class="num">$9,800</td><td class="num">$4,200</td><td class="num">$6,900</td><td class="num">$11,300</td><td class="num">$15,600</td><td class="num total-cell">$47,800 <span class="pct">(20%)</span></td></tr><tr><td class="rowlabel">Walk-in</td><td class="num">$2,100</td><td class="num">$900</td><td class="num">$1,500</td><td class="num">$2,400</td><td class="num">$3,100</td><td class="num total-cell">$10,000 <span class="pct">(4%)</span></td></tr><tr class="total-row"><td class="rowlabel">Total</td><td class="num total-cell">$48,900<br><span class="pct">(20%)</span></td><td class="num total-cell">$24,700<br><span class="pct">(10%)</span></td><td class="num total-cell">$37,700<br><span class="pct">(15%)</span></td><td class="num total-cell">$58,000<br><span class="pct">(24%)</span></td><td class="num total-cell">$74,600<br><span class="pct">(31%)</span></td><td class="num total-cell">$243,900<br><span class="pct">(100%)</span></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="barband">Net sales by week ($) — last 8 weeks: $1,449,300</div>
+  <div class="chart-box">
+<svg viewBox="0 0 760 260" width="100%" height="260">
+  <line x1="50" y1="20.0" x2="740" y2="20.0" stroke="#E2E2E2" stroke-width="1"/><line x1="50" y1="72.5" x2="740" y2="72.5" stroke="#E2E2E2" stroke-width="1"/><line x1="50" y1="125.0" x2="740" y2="125.0" stroke="#E2E2E2" stroke-width="1"/><line x1="50" y1="177.5" x2="740" y2="177.5" stroke="#E2E2E2" stroke-width="1"/><line x1="50" y1="230.0" x2="740" y2="230.0" stroke="#E2E2E2" stroke-width="1"/>
+  <path d="M 50.0,230.0 93.1,112.0 L 179.4,108.0 L 265.6,110.0 L 351.9,103.2 L 438.1,99.7 L 524.4,95.4 L 610.6,90.5 L 696.9,85.7 L 740.0,230.0 Z" fill="#E3D3C2" opacity="0.6"/>
+  <rect x="69.4" y="183.8" width="47.4" height="46.2" fill="#3F3D3B" /><rect x="69.4" y="152.7" width="47.4" height="31.1" fill="#8B8D8E" /><rect x="69.4" y="135.1" width="47.4" height="17.5" fill="#C7AC96" /><rect x="69.4" y="110.4" width="47.4" height="24.7" fill="#969150" /><rect x="69.4" y="104.0" width="47.4" height="6.4" fill="#E7C372" /><rect x="155.7" y="181.4" width="47.4" height="48.6" fill="#3F3D3B" /><rect x="155.7" y="148.7" width="47.4" height="32.7" fill="#8B8D8E" /><rect x="155.7" y="130.3" width="47.4" height="18.3" fill="#C7AC96" /><rect x="155.7" y="104.4" width="47.4" height="25.9" fill="#969150" /><rect x="155.7" y="97.8" width="47.4" height="6.6" fill="#E7C372" /><rect x="241.9" y="182.6" width="47.4" height="47.4" fill="#3F3D3B" /><rect x="241.9" y="150.5" width="47.4" height="32.0" fill="#8B8D8E" /><rect x="241.9" y="132.7" width="47.4" height="17.9" fill="#C7AC96" /><rect x="241.9" y="107.3" width="47.4" height="25.4" fill="#969150" /><rect x="241.9" y="100.8" width="47.4" height="6.5" fill="#E7C372" /><rect x="328.2" y="179.8" width="47.4" height="50.2" fill="#3F3D3B" /><rect x="328.2" y="145.9" width="47.4" height="33.9" fill="#8B8D8E" /><rect x="328.2" y="126.9" width="47.4" height="19.0" fill="#C7AC96" /><rect x="328.2" y="99.9" width="47.4" height="27.0" fill="#969150" /><rect x="328.2" y="93.0" width="47.4" height="6.9" fill="#E7C372" /><rect x="414.4" y="178.0" width="47.4" height="52.0" fill="#3F3D3B" /><rect x="414.4" y="143.1" width="47.4" height="34.9" fill="#8B8D8E" /><rect x="414.4" y="123.6" width="47.4" height="19.5" fill="#C7AC96" /><rect x="414.4" y="95.7" width="47.4" height="27.8" fill="#969150" /><rect x="414.4" y="88.7" width="47.4" height="7.1" fill="#E7C372" /><rect x="500.7" y="176.7" width="47.4" height="53.3" fill="#3F3D3B" /><rect x="500.7" y="140.8" width="47.4" height="36.0" fill="#8B8D8E" /><rect x="500.7" y="120.7" width="47.4" height="20.1" fill="#C7AC96" /><rect x="500.7" y="92.1" width="47.4" height="28.6" fill="#969150" /><rect x="500.7" y="84.8" width="47.4" height="7.3" fill="#E7C372" /><rect x="586.9" y="174.9" width="47.4" height="55.1" fill="#3F3D3B" /><rect x="586.9" y="137.7" width="47.4" height="37.2" fill="#8B8D8E" /><rect x="586.9" y="117.0" width="47.4" height="20.7" fill="#C7AC96" /><rect x="586.9" y="87.3" width="47.4" height="29.7" fill="#969150" /><rect x="586.9" y="79.8" width="47.4" height="7.5" fill="#E7C372" /><rect x="673.2" y="158.4" width="47.4" height="71.6" fill="#3F3D3B" /><rect x="673.2" y="107.9" width="47.4" height="50.5" fill="#8B8D8E" /><rect x="673.2" y="81.6" width="47.4" height="26.3" fill="#C7AC96" /><rect x="673.2" y="43.5" width="47.4" height="38.1" fill="#969150" /><rect x="673.2" y="35.6" width="47.4" height="8.0" fill="#E7C372" />
+  <polyline points="93.1,106.4 179.4,101.6 265.6,104.0 351.9,96.9 438.1,92.9 524.4,88.1 610.6,83.3 696.9,78.5" fill="none" stroke="#BF001C" stroke-width="2.5"/>
+  <circle cx="93.1" cy="106.4" r="3" fill="#BF001C"/><circle cx="179.4" cy="101.6" r="3" fill="#BF001C"/><circle cx="265.6" cy="104.0" r="3" fill="#BF001C"/><circle cx="351.9" cy="96.9" r="3" fill="#BF001C"/><circle cx="438.1" cy="92.9" r="3" fill="#BF001C"/><circle cx="524.4" cy="88.1" r="3" fill="#BF001C"/><circle cx="610.6" cy="83.3" r="3" fill="#BF001C"/><circle cx="696.9" cy="78.5" r="3" fill="#BF001C"/>
+  <text x="93.1" y="252" font-size="11" text-anchor="middle" fill="#3F3D3B" font-family="Inria Serif, serif">W27</text><text x="179.4" y="252" font-size="11" text-anchor="middle" fill="#3F3D3B" font-family="Inria Serif, serif">W28</text><text x="265.6" y="252" font-size="11" text-anchor="middle" fill="#3F3D3B" font-family="Inria Serif, serif">W29</text><text x="351.9" y="252" font-size="11" text-anchor="middle" fill="#3F3D3B" font-family="Inria Serif, serif">W30</text><text x="438.1" y="252" font-size="11" text-anchor="middle" fill="#3F3D3B" font-family="Inria Serif, serif">W31</text><text x="524.4" y="252" font-size="11" text-anchor="middle" fill="#3F3D3B" font-family="Inria Serif, serif">W32</text><text x="610.6" y="252" font-size="11" text-anchor="middle" fill="#3F3D3B" font-family="Inria Serif, serif">W33</text><text x="696.9" y="252" font-size="11" text-anchor="middle" fill="#3F3D3B" font-family="Inria Serif, serif">W34</text>
+</svg>
+</div>
+  <div class="legend-bottom">
+    <span><span class="sw" style="background:#3F3D3B"></span>Direct Reservation</span><span><span class="sw" style="background:#8B8D8E"></span>OTA</span><span><span class="sw" style="background:#C7AC96"></span>Travel Agency</span><span><span class="sw" style="background:#969150"></span>Corporate / Events</span><span><span class="sw" style="background:#E7C372"></span>Walk-in</span>
+    <span><span class="sw" style="background:#BF001C"></span>Plan</span>
+    <span><span class="sw" style="background:#E3D3C2"></span>Prior Year (area)</span>
+  </div>
+  <div class="foot-note">Rates shown do not include applicable occupancy/lodging taxes.</div>
+
+  <div class="barband">Net sales by month ($) — trailing 12 months</div>
+  <div class="chart-box">
+<svg viewBox="0 0 760 220" width="100%" height="220">
+  <line x1="50" y1="20.0" x2="740" y2="20.0" stroke="#E2E2E2" stroke-width="1"/><line x1="50" y1="62.5" x2="740" y2="62.5" stroke="#E2E2E2" stroke-width="1"/><line x1="50" y1="105.0" x2="740" y2="105.0" stroke="#E2E2E2" stroke-width="1"/><line x1="50" y1="147.5" x2="740" y2="147.5" stroke="#E2E2E2" stroke-width="1"/><line x1="50" y1="190.0" x2="740" y2="190.0" stroke="#E2E2E2" stroke-width="1"/>
+  <rect x="64.4" y="168.7" width="28.8" height="21.3" fill="#969150" rx="2"/><rect x="121.9" y="167.3" width="28.8" height="22.7" fill="#969150" rx="2"/><rect x="179.4" y="169.3" width="28.8" height="20.7" fill="#969150" rx="2"/><rect x="236.9" y="161.6" width="28.8" height="28.4" fill="#969150" rx="2"/><rect x="294.4" y="171.8" width="28.8" height="18.2" fill="#969150" rx="2"/><rect x="351.9" y="172.3" width="28.8" height="17.7" fill="#969150" rx="2"/><rect x="409.4" y="169.7" width="28.8" height="20.3" fill="#969150" rx="2"/><rect x="466.9" y="167.6" width="28.8" height="22.4" fill="#969150" rx="2"/><rect x="524.4" y="165.7" width="28.8" height="24.3" fill="#969150" rx="2"/><rect x="581.9" y="164.3" width="28.8" height="25.7" fill="#969150" rx="2"/><rect x="639.4" y="163.3" width="28.8" height="26.7" fill="#969150" rx="2"/><rect x="696.9" y="32.6" width="28.8" height="157.4" fill="#969150" rx="2"/>
+  <polyline points="78.8,169.3 136.2,168.2 193.8,169.0 251.2,163.0 308.8,171.2 366.2,172.0 423.8,170.5 481.2,168.2 538.8,166.3 596.2,165.2 653.8,164.2 711.2,161.5" fill="none" stroke="#BF001C" stroke-width="2.5"/>
+  <text x="78.8" y="212" font-size="11" text-anchor="middle" fill="#3F3D3B" font-family='Inria Serif, serif'>Sep</text><text x="136.2" y="212" font-size="11" text-anchor="middle" fill="#3F3D3B" font-family='Inria Serif, serif'>Oct</text><text x="193.8" y="212" font-size="11" text-anchor="middle" fill="#3F3D3B" font-family='Inria Serif, serif'>Nov</text><text x="251.2" y="212" font-size="11" text-anchor="middle" fill="#3F3D3B" font-family='Inria Serif, serif'>Dec</text><text x="308.8" y="212" font-size="11" text-anchor="middle" fill="#3F3D3B" font-family='Inria Serif, serif'>Jan</text><text x="366.2" y="212" font-size="11" text-anchor="middle" fill="#3F3D3B" font-family='Inria Serif, serif'>Feb</text><text x="423.8" y="212" font-size="11" text-anchor="middle" fill="#3F3D3B" font-family='Inria Serif, serif'>Mar</text><text x="481.2" y="212" font-size="11" text-anchor="middle" fill="#3F3D3B" font-family='Inria Serif, serif'>Apr</text><text x="538.8" y="212" font-size="11" text-anchor="middle" fill="#3F3D3B" font-family='Inria Serif, serif'>May</text><text x="596.2" y="212" font-size="11" text-anchor="middle" fill="#3F3D3B" font-family='Inria Serif, serif'>Jun</text><text x="653.8" y="212" font-size="11" text-anchor="middle" fill="#3F3D3B" font-family='Inria Serif, serif'>Jul</text><text x="711.2" y="212" font-size="11" text-anchor="middle" fill="#3F3D3B" font-family='Inria Serif, serif'>Aug</text>
+</svg>
+</div>
+  <div class="legend-bottom">
+    <span><span class="sw" style="background:#969150"></span>Actual</span>
+    <span><span class="sw" style="background:#BF001C"></span>Plan</span>
+  </div>
+
+  <div class="pagenum">1</div>
+</div>
+</body>
+</html>

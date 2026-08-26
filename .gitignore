@@ -1,0 +1,11 @@
+# Archivos a evitar
+*.csv
+*.xlsx
+*.xls
+*.twb
+*.twbx
+# Carpetas a evitar
+Client_Documents/
+Client_Data/
+Output/
+.agents/
