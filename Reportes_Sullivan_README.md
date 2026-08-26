@@ -109,3 +109,4 @@ dibujando los paths directamente en el canvas de ReportLab.
 - `Scripts/sullivan_c7_simulator.py` sirve para generar datos de otros meses
   en Colab y así probar tendencias (`growth_trend_pct`) antes de tener datos
   reales de mayo en adelante.
+- **Libro Excel analítico (`xlsx_generator.py`):** Descartado por ahora por decisión de negocio; el PDF Ejecutivo (~10 págs) y el Dashboard HTML standalone cubren el 100% de los requerimientos de entrega solicitados por el cliente.

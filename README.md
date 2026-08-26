@@ -1,17 +1,27 @@
 # Sistema Tripartito de Reportes Ejecutivos Multimarca
 
+Autor: Fernando Dorantes Nieto
+
 > **Plataforma Agéntica de Inteligencia Comercial y Reporteo Directivo**  
 > Generación de Dashboards Interactivos Standalone (HTML) y Reportes Directivos de Alta Calidad (PDF) para marcas de lujo, hospitalidad y destilados ultra-premium.
+
+<div align="center">
+
+| Sullivan Rutherford Estate | Loco Tequila USA | Sttupa |
+| :---: | :---: | :---: |
+| <img src="Imagenes_iconos/Sullivan-Black.png" alt="Sullivan Rutherford Estate" height="38" /> | <img src="Imagenes_iconos/Loco_Tequila_Logo.svg" alt="Loco Tequila USA" height="38" /> | <img src="Imagenes_iconos/Stupa-Black.png" alt="Sttupa" height="38" /> |
+
+</div>
 
 ---
 
 ## 🏷️ Estado del Ecosistema de Marcas
 
-| Marca | Industria / Región | Estado de la Skill | Entregables Disponibles |
-| :--- | :--- | :---: | :--- |
-| **Sullivan Rutherford Estate** | Bodega & Viñedo (Napa Valley, CA, EEUU) | 🟢 **ACTIVO** | Dashboard HTML (2 pestañas + mapa) + PDF Ejecutivo (~10 págs) |
-| **Loco Tequila USA** | Tequila de Terruño Ultra-Premium (Jalisco, MEX / EEUU) | 🟡 **Próximamente** | Manual de diseño, tokens, tipografías y logos preparados |
-| **Sttupa** | Hospitalidad & Experiencias Boutique | 🟡 **Próximamente** | Manual de diseño, tokens, tipografías y logos preparados |
+| Marca | Identidad | Industria / Región | Estado de la Skill | Entregables Disponibles |
+| :--- | :---: | :--- | :---: | :--- |
+| **Sullivan Rutherford Estate** | <img src="Imagenes_iconos/Sullivan-Black.png" alt="Sullivan" height="24" /> | Bodega & Viñedo (Napa Valley, CA, EEUU) | 🟢 **ACTIVO** | Dashboard HTML (3 pestañas + mapa) + PDF Ejecutivo (~10 págs) *(Excel analítico descartado por ahora)* |
+| **Loco Tequila USA** | <img src="Imagenes_iconos/Loco_Tequila_Logo.svg" alt="Loco Tequila" height="24" /> | Tequila de Terruño Ultra-Premium (Jalisco, MEX / EEUU) | 🟡 **Próximamente** | Manual de diseño, tokens, tipografías y logos preparados |
+| **Sttupa** | <img src="Imagenes_iconos/Stupa-Black.png" alt="Sttupa" height="24" /> | Hospitalidad & Experiencias Boutique | 🟡 **Próximamente** | Manual de diseño, tokens, tipografías y logos preparados |
 
 ---
 
@@ -34,7 +44,7 @@ La skill está diseñada de manera agnóstica para guiar al usuario o interactua
 ```text
 ├── .agents/
 │   └── skills/
-│       └── reporte-marcas/
+│       └── reporte-sullivan-sttupa-loco-tequila-us/
 │           └── SKILL.md            # Definición formal de la skill agéntica
 ├── Client_Data/
 │   └── Sullivan_data/              # Reportes fuente reales de Commerce7 (Abril 2026)
@@ -69,7 +79,7 @@ La skill está diseñada de manera agnóstica para guiar al usuario o interactua
 
 Todos los scripts requieren ejecutarse dentro del entorno de Conda **`data_analytics_science`**.
 
-### Activación en PowerShell (Windows):
+### Activación en PowerShell (Windows)
 
 ```powershell
 # 1. Cargar hook de Conda
@@ -86,7 +96,9 @@ conda activate data_analytics_science
 El script principal [`Scripts/generate_report.py`](file:///e:/Users/1167486/Local/scripts/skills_generales/reporte-sullivan-sttupa-loco-tequila-us/Scripts/generate_report.py) puede invocarse de manera interactiva o automatizada:
 
 ### 1. Modo Interactivo (Recomendado para usuarios en consola)
+
 Al ejecutarse sin argumentos o con `--interactive`, despliega un menú interactivo guiado:
+
 ```powershell
 python Scripts/generate_report.py
 ```
@@ -94,11 +106,13 @@ python Scripts/generate_report.py
 ### 2. Modo Automatizado (CLI para Agentes IA)
 
 #### Caso A: Sullivan con Datos Demo predeterminados
+
 ```powershell
 python Scripts/generate_report.py --brand sullivan --data-source demo --period-label "April 2026" --output-dir Output
 ```
 
 #### Caso B: Sullivan con Datos Propios (.xlsx o .csv)
+
 ```powershell
 python Scripts/generate_report.py `
   --brand sullivan `
@@ -109,6 +123,7 @@ python Scripts/generate_report.py `
 ```
 
 #### Caso C: Consulta de Marca en Desarrollo (Loco Tequila o Sttupa)
+
 ```powershell
 python Scripts/generate_report.py --brand loco_tequila
 # Salida: Informa que la marca está en estado "Próximamente" y muestra los recursos listos.

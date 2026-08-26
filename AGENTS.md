@@ -68,7 +68,7 @@ Todo agente que atienda una solicitud de generación de reportes en este reposit
   - **Gemini 3.7 Flash** (Predeterminado para alta velocidad y precisión de código)
   - **Gemini 3.1 Pro / Ultra**
 - **Instrucciones para Antigravity**:
-  1. Antigravity descubre automáticamente las skills en la raíz de trabajo (`SKILL.md`) o en `.agents/skills/reporte-marcas/SKILL.md`.
+  1. Antigravity descubre automáticamente las skills en la raíz de trabajo (`SKILL.md`) o en `.agents/skills/reporte-sullivan-sttupa-loco-tequila-us/SKILL.md`.
   2. Al ejecutar comandos en la terminal de Antigravity, anteponer la activación del hook de Conda.
   3. Para datos personalizados provistos por el usuario en CSV o Excel:
 

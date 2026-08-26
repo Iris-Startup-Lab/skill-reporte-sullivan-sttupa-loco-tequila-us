@@ -1,11 +1,13 @@
-# Archivos a evitar
+# Archivos a evitar en el repositorio
 *.csv
 *.xlsx
 *.xls
 *.twb
 *.twbx
+*.zip
 # Carpetas a evitar
 Client_Documents/
 Client_Data/
 Output/
 .agents/
+**/__pycache__/

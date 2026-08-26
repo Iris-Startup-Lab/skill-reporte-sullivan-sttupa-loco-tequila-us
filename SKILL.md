@@ -5,7 +5,7 @@ description: Generador agnóstico de reportes ejecutivos (Dashboard HTML + Repor
 
 # Skill: Generador Agnóstico de Reportes Ejecutivos Multimarca
 
-Esta skill orquesta la creación de reportes directivos y dashboards interactivos para el ecosistema de marcas:
+Esta skill orquesta la creación de reportes directivos y dashboards interactivos para el ecosistema de 3 marcas:
 
 1. **Sullivan Rutherford Estate** (Bodega / Viñedo, Napa Valley, EEUU) — **[ACTIVO / PRODUCCIÓN]**
 2. **Loco Tequila USA** (Destilados de ultra-lujo, México / EEUU) — **[PRÓXIMAMENTE]**

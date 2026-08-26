@@ -400,6 +400,75 @@ def build_reconciliation(vista_a: dict, financial_report_path: str | None) -> di
     }
 
 
+def render_svg_map_html(geo: dict) -> str:
+    """Genera el SVG del mapa coroplético de EE.UU. pre-renderizado estáticamente con escala Cabernet."""
+    geo_dict = json.loads(US_STATES_GEO_JSON)
+    paths = geo_dict.get("paths", {})
+    centroids = geo_dict.get("centroids", {})
+
+    state_sub = dict(zip(geo.get("states", []), geo.get("state_subtotal", [])))
+    state_ord = dict(zip(geo.get("states", []), geo.get("state_orders", [])))
+    max_sub = max(geo.get("state_subtotal", [1.0]) + [1.0])
+
+    svg_parts = [
+        '<svg id="chart-geo-states" viewBox="0 0 960 600" '
+        'style="width:100%;max-width:960px;height:auto;aspect-ratio:960/600;display:block;margin:0 auto;">'
+    ]
+
+    for code, path_d in paths.items():
+        sub = state_sub.get(code, 0.0)
+        ords = state_ord.get(code, 0)
+        if sub > 0:
+            # Escala no lineal (potencia 0.42) para que estados con ventas intermedias se diferencien claramente
+            t = min(1.0, max(0.0, (sub / max_sub) ** 0.42))
+            c0 = (235, 214, 206)  # Tint suave Cabernet
+            c1 = (84, 18, 26)     # Cabernet profundo Sullivan
+            r = int(c0[0] + (c1[0] - c0[0]) * t)
+            g = int(c0[1] + (c1[1] - c0[1]) * t)
+            b = int(c0[2] + (c1[2] - c0[2]) * t)
+            fill = f"rgb({r},{g},{b})"
+            stroke = "#003057"
+            stroke_width = "1.2"
+        else:
+            # Estados sin ventas: gris neutro elegante claramente distinguible
+            fill = "#EFECE6"
+            stroke = "#C8C2B8"
+            stroke_width = "0.8"
+
+        svg_parts.append(
+            f'<path class="state-path" data-code="{code}" data-orders="{ords}" data-subtotal="{sub:.2f}" '
+            f'd="{path_d}" fill="{fill}" stroke="{stroke}" stroke-width="{stroke_width}" stroke-linejoin="round">'
+            f'<title>{code}: {ords} órdenes, ${sub:,.0f}</title></path>'
+        )
+
+    for code, (cx, cy) in centroids.items():
+        sub = state_sub.get(code, 0.0)
+        if sub > 0:
+            t = min(1.0, (sub / max_sub) ** 0.42)
+            lbl_color = "#FFFFFF" if t > 0.6 else "#451B0F"
+            svg_parts.append(
+                f'<text x="{cx}" y="{cy}" text-anchor="middle" font-size="9.5" font-weight="700" fill="{lbl_color}" pointer-events="none">{code}</text>'
+            )
+
+    zip_points = geo.get("zip_points", [])
+    max_zip_ords = max([p.get("orders", 1) for p in zip_points] + [1])
+    for p in zip_points:
+        z = p.get("zip", "")
+        ords = p.get("orders", 0)
+        sub = p.get("subtotal", 0.0)
+        x = p.get("x", 0)
+        y = p.get("y", 0)
+        r = round(4.0 + (ords / max_zip_ords) * 11.0, 1)
+        svg_parts.append(
+            f'<circle class="zip-circle" data-zip="{z}" data-orders="{ords}" data-subtotal="{sub:.2f}" '
+            f'cx="{x}" cy="{y}" r="{r}" fill="#C79F6C" stroke="#003057" stroke-width="1.5" opacity="0.94">'
+            f'<title>Código Postal (ZIP) {z}: {ords} órdenes, ${sub:,.0f}</title></circle>'
+        )
+
+    svg_parts.append('</svg>')
+    return "\n".join(svg_parts)
+
+
 # ==============================================================================
 # 4. ASSETS DE MARCA (fuente + logo embebidos como base64 -> archivo standalone)
 # ==============================================================================
@@ -479,6 +548,97 @@ table.data-table td.num {{ text-align:right; }}
 table.data-table tr.total-row td {{ background:var(--highlight-cream); font-weight:700; }}
 .footer-note {{ font-size:11px; color:var(--brand-gray); margin-top:40px; border-top:1px solid var(--rule-line); padding-top:10px; }}
 .club-link {{ cursor:pointer; text-decoration:underline; color:var(--brand-navy); }}
+#geo-tooltip {{
+  position: absolute;
+  display: none;
+  pointer-events: none;
+  background: rgba(0, 48, 87, 0.95);
+  color: #fff;
+  border: 1px solid var(--brand-tan);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+  z-index: 1000;
+  line-height: 1.4;
+}}
+.chart-wrap path {{ transition: opacity 0.15s; }}
+.chart-wrap path:hover {{ opacity: 0.82; cursor: pointer; stroke-width: 1.8px !important; stroke: var(--brand-tan) !important; }}
+.chart-wrap circle:hover {{ stroke: var(--brand-navy) !important; stroke-width: 2.5px !important; cursor: pointer; }}
+#chart-geo-states {{ width:100%; max-width:960px; height:auto; aspect-ratio:960/600; display:block; margin:0 auto; }}
+
+/* Leyenda del Mapa Geográfico */
+.map-legend {{
+  background: #fff;
+  border: 1px solid var(--rule-line);
+  border-radius: 6px;
+  padding: 16px 22px;
+  margin: 16px 0 18px;
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 24px;
+  text-align: left;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+}}
+@media (max-width: 860px) {{
+  .map-legend {{ grid-template-columns: 1fr; gap: 16px; }}
+}}
+.legend-card-title {{
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--brand-navy);
+  font-weight: 700;
+  margin-bottom: 8px;
+}}
+.legend-scale-row {{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: #333;
+}}
+.legend-chip {{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}}
+.chip-box {{
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  display: inline-block;
+}}
+.legend-bar-container {{
+  flex: 1;
+  min-width: 140px;
+}}
+.legend-bar-gradient {{
+  height: 11px;
+  border-radius: 3px;
+  border: 1px solid #003057;
+  background: linear-gradient(to right, #E8D3CB, #B9655D, #8C2F2F, #54121A);
+}}
+.legend-bar-labels {{
+  display: flex;
+  justify-content: space-between;
+  font-size: 10.5px;
+  color: var(--brand-gray);
+  margin-top: 3px;
+}}
+.legend-zip-row {{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: #333;
+  line-height: 1.45;
+}}
+.legend-zip-text strong {{
+  color: var(--brand-navy);
+}}
 </style>
 </head>
 <body>
@@ -494,6 +654,7 @@ table.data-table tr.total-row td {{ background:var(--highlight-cream); font-weig
 <nav class="tabs">
   <button class="active" data-tab="tab-a" onclick="showTab('tab-a')">DTC Reconciliation</button>
   <button data-tab="tab-b" onclick="showTab('tab-b')">Club Deep Dive</button>
+  <button data-tab="tab-geo" onclick="showTab('tab-geo')">🗺️ Geographic Distribution</button>
 </nav>
 
 <main>
@@ -520,17 +681,61 @@ table.data-table tr.total-row td {{ background:var(--highlight-cream); font-weig
   <h2 class="section-title">Review Cases (Admin/POS Marked as Club)</h2>
   <table class="data-table" id="table-review"></table>
 
+  <div style="margin-top:32px; background:var(--highlight-cream); border:1px solid var(--rule-line); border-radius:4px; padding:18px 22px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+    <div>
+      <h3 style="margin:0; color:var(--brand-navy); font-size:16px;">Distribución Geográfica de Envíos</h3>
+      <p style="margin:4px 0 0; font-size:13px; color:var(--brand-gray);">Explora el mapa interactivo de envíos por estado y concentración por código postal.</p>
+    </div>
+    <button onclick="showTab('tab-geo')" style="font-family:inherit; background:var(--brand-navy); color:#fff; border:none; padding:10px 20px; border-radius:3px; cursor:pointer; font-size:13px; letter-spacing:0.04em;">
+      Abrir Mapa Geográfico →
+    </button>
+  </div>
+</section>
+
+<section id="tab-geo" class="tabpanel">
+  <div class="kpi-row" id="kpi-row-geo"></div>
   <h2 class="section-title">Geographic Distribution — Club Shipments</h2>
-  <p style="font-size:12px;color:var(--brand-gray);margin-top:-6px;">
-    Choropleth real por estado (fronteras embebidas, sin llamadas externas) + puntos tan
-    por ZIP (tamaño = # de órdenes). Basado en Ship To State/Zip (cae a Bill To si el
-    envío está vacío). Lat/lon de cada ZIP se resuelven automáticamente contra el ZCTA
-    Gazetteer del Census Bureau (ver load_zip_centroids) — si aparecen ZIPs nuevos en
-    meses futuros, se resuelven solos sin tocar código.
+  <p style="font-size:13px;color:var(--brand-gray);margin-top:-6px;">
+    Análisis territorial de ventas de Club a nivel nacional. La intensidad del color en cada estado refleja la facturación neta, mientras que los círculos dorados marcan la ubicación precisa y volumen de los Códigos Postales (ZIPs) receptores.
   </p>
-  <div class="chart-wrap"><svg id="chart-geo-states" viewBox="0 0 960 600" style="width:100%;height:auto;"></svg></div>
-  <table class="data-table" id="table-geo-states" style="margin-top:22px;"></table>
-  <h3 style="color:var(--brand-navy);font-size:14px;margin-top:26px;">Top 15 ZIP codes (Club)</h3>
+
+  <!-- LEYENDA DEL MAPA -->
+  <div class="map-legend">
+    <div class="legend-item">
+      <div class="legend-card-title">Escala de Ventas por Estado (Coropleta)</div>
+      <div class="legend-scale-row">
+        <div class="legend-chip"><span class="chip-box" style="background:#EFECE6;border:1px solid #C8C2B8;"></span> Sin ventas ($0)</div>
+        <div class="legend-chip"><span class="chip-box" style="background:#E8D3CB;border:1px solid #003057;"></span> Ventas bajas</div>
+        <div class="legend-bar-container">
+          <div class="legend-bar-gradient"></div>
+          <div class="legend-bar-labels">
+            <span>Min ($500)</span>
+            <span>Medio (~$15k)</span>
+            <span>Max ($127k+)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend-item">
+      <div class="legend-card-title">Concentración por Código Postal (ZIP Code)</div>
+      <div class="legend-zip-row">
+        <svg width="24" height="24" viewBox="0 0 24 24" style="flex-shrink:0;">
+          <circle cx="12" cy="12" r="8" fill="#C79F6C" stroke="#003057" stroke-width="1.5" />
+        </svg>
+        <div class="legend-zip-text">
+          <strong>Círculos dorados (●):</strong> Representan la ubicación exacta de cada <strong>Código Postal (ZIP Code)</strong> de entrega. El tamaño del círculo es proporcional al <strong>número de órdenes</strong> enviadas a esa localidad.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-wrap" style="position:relative; text-align:center; padding:24px 14px;">
+    {svg_map_html}
+    <div id="geo-tooltip"></div>
+  </div>
+  <table class="data-table" id="table-geo-states" style="margin-top:24px;"></table>
+  <h3 style="color:var(--brand-navy);font-size:15px;margin-top:28px;">Top 15 ZIP codes (Club)</h3>
   <table class="data-table" id="table-geo-zip"></table>
 </section>
 
@@ -541,7 +746,16 @@ table.data-table tr.total-row td {{ background:var(--highlight-cream); font-weig
 
 </main>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script>
+{chart_js_inline}
+</script>
+<script>
+if (typeof Chart === 'undefined') {{
+  var s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js';
+  document.head.appendChild(s);
+}}
+</script>
 <script>
 window.REPORT_DATA = {report_data_json};
 
@@ -558,11 +772,13 @@ function showTab(id) {{
   document.querySelectorAll('.tabpanel').forEach(function(p) {{ p.classList.remove('active'); }});
   document.querySelectorAll('nav.tabs button').forEach(function(b) {{ b.classList.remove('active'); }});
   document.getElementById(id).classList.add('active');
-  document.querySelector('nav.tabs button[data-tab="' + id + '"]').classList.add('active');
+  var btn = document.querySelector('nav.tabs button[data-tab="' + id + '"]');
+  if (btn) btn.classList.add('active');
 }}
 
 function renderKpiRow(elId, cards) {{
   var el = document.getElementById(elId);
+  if (!el) return;
   el.innerHTML = cards.map(function(c) {{
     return '<div class="kpi-card ' + (c.cls || '') + '"><div class="label">' + c.label +
            '</div><div class="value">' + c.value + '</div></div>';
@@ -571,6 +787,7 @@ function renderKpiRow(elId, cards) {{
 
 function renderTable(elId, headers, rows) {{
   var el = document.getElementById(elId);
+  if (!el) return;
   var thead = '<thead><tr>' + headers.map(function(h) {{ return '<th>' + h + '</th>'; }}).join('') + '</tr></thead>';
   var tbody = '<tbody>' + rows.map(function(r) {{
     return '<tr class="' + (r.cls || '') + '">' + r.cells.map(function(c) {{
@@ -584,158 +801,238 @@ function renderTable(elId, headers, rows) {{
   var d = window.REPORT_DATA;
 
   // ---- Vista A ----
-  renderKpiRow('kpi-row-a', [
-    {{ label: 'Total DTC (SubTotal)', value: fmtMoney(d.vista_a.total_dtc) }},
-    {{ label: 'Net Sales (Financial Report)', value: d.reconciliation.net_sales_financial != null ? fmtMoney(d.reconciliation.net_sales_financial) : 'n/a' }},
-    {{ label: 'Reconciliation', value: d.reconciliation.match === true ? 'OK — matches' : (d.reconciliation.match === false ? 'DISCREPANCY' : 'n/a'),
-       cls: d.reconciliation.match === false ? 'warn' : 'ok' }},
-    {{ label: 'Total Orders', value: d.vista_a.orders.reduce(function(a,b){{return a+b;}},0).toLocaleString('en-US') }},
-  ]);
+  try {{
+    renderKpiRow('kpi-row-a', [
+      {{ label: 'Total DTC (SubTotal)', value: fmtMoney(d.vista_a.total_dtc) }},
+      {{ label: 'Net Sales (Financial Report)', value: d.reconciliation.net_sales_financial != null ? fmtMoney(d.reconciliation.net_sales_financial) : 'n/a' }},
+      {{ label: 'Reconciliation', value: d.reconciliation.match === true ? 'OK — matches' : (d.reconciliation.match === false ? 'DISCREPANCY' : 'n/a'),
+         cls: d.reconciliation.match === false ? 'warn' : 'ok' }},
+      {{ label: 'Total Orders', value: d.vista_a.orders.reduce(function(a,b){{return a+b;}},0).toLocaleString('en-US') }},
+    ]);
+  }} catch (e) {{ console.error('Error en KPI Vista A:', e); }}
 
-  new Chart(document.getElementById('chart-categories'), {{
-    type: 'bar',
-    data: {{
-      labels: d.vista_a.categories,
-      datasets: [{{ label: 'Sub Total ($)', data: d.vista_a.subtotal, backgroundColor: d.vista_a.colors }}]
-    }},
-    options: {{ indexAxis: 'y', plugins: {{ legend: {{ display:false }} }},
-                scales: {{ x: {{ grid: {{ color: '{chart_grid}' }} }} }} }}
-  }});
+  try {{
+    renderTable('table-categories', ['Category', 'Orders', 'Sub Total', '% of Sales'],
+      d.vista_a.categories.map(function(cat, i) {{
+        return {{ cells: [
+          {{ v: cat }},
+          {{ v: d.vista_a.orders[i].toLocaleString('en-US'), num:true }},
+          {{ v: fmtMoney(d.vista_a.subtotal[i]), num:true }},
+          {{ v: d.vista_a.pct[i] + '%', num:true }},
+        ] }};
+      }}).concat([{{ cls:'total-row', cells: [
+          {{ v: 'TOTAL DTC' }}, {{ v: d.vista_a.orders.reduce(function(a,b){{return a+b;}},0), num:true }},
+          {{ v: fmtMoney(d.vista_a.total_dtc), num:true }}, {{ v: '100%', num:true }} ] }}])
+    );
+  }} catch (e) {{ console.error('Error en tabla de categorías:', e); }}
 
-  renderTable('table-categories', ['Category', 'Orders', 'Sub Total', '% of Sales'],
-    d.vista_a.categories.map(function(cat, i) {{
-      return {{ cells: [
-        {{ v: cat }},
-        {{ v: d.vista_a.orders[i].toLocaleString('en-US'), num:true }},
-        {{ v: fmtMoney(d.vista_a.subtotal[i]), num:true }},
-        {{ v: d.vista_a.pct[i] + '%', num:true }},
-      ] }};
-    }}).concat([{{ cls:'total-row', cells: [
-        {{ v: 'TOTAL DTC' }}, {{ v: d.vista_a.orders.reduce(function(a,b){{return a+b;}},0), num:true }},
-        {{ v: fmtMoney(d.vista_a.total_dtc), num:true }}, {{ v: '100%', num:true }} ] }}])
-  );
+  function tryRenderCategoriesChart() {{
+    if (typeof Chart === 'undefined') {{
+      setTimeout(tryRenderCategoriesChart, 150);
+      return;
+    }}
+    try {{
+      new Chart(document.getElementById('chart-categories'), {{
+        type: 'bar',
+        data: {{
+          labels: d.vista_a.categories,
+          datasets: [{{ label: 'Sub Total ($)', data: d.vista_a.subtotal, backgroundColor: d.vista_a.colors }}]
+        }},
+        options: {{
+          indexAxis: 'y',
+          responsive: true,
+          plugins: {{
+            legend: {{ display: false }},
+            tooltip: {{
+              backgroundColor: 'rgba(0, 48, 87, 0.95)',
+              titleFont: {{ size: 14, weight: 'bold', family: "'EB Garamond', Georgia, serif" }},
+              bodyFont: {{ size: 13, family: "'EB Garamond', Georgia, serif" }},
+              padding: 12,
+              borderColor: '#A67C52',
+              borderWidth: 1.5,
+              callbacks: {{
+                label: function(ctx) {{
+                  var idx = ctx.dataIndex;
+                  var val = fmtMoney(ctx.raw);
+                  var ords = d.vista_a.orders[idx].toLocaleString('en-US');
+                  var pct = d.vista_a.pct[idx];
+                  return [
+                    ' Venta Neta: ' + val + ' (' + pct + '% del Total)',
+                    ' Volumen: ' + ords + ' órdenes'
+                  ];
+                }}
+              }}
+            }}
+          }},
+          scales: {{ x: {{ grid: {{ color: '{chart_grid}' }} }} }}
+        }}
+      }});
+    }} catch (e) {{ console.error('Error al inicializar gráfica de categorías:', e); }}
+  }}
+  tryRenderCategoriesChart();
 
   // ---- Vista B ----
-  renderKpiRow('kpi-row-b', [
-    {{ label: 'Estate Club', value: fmtMoney(d.vista_b.estate_total) }},
-    {{ label: "Founder's Club", value: fmtMoney(d.vista_b.founders_total) }},
-    {{ label: 'Review Cases', value: d.vista_b.review_cases.length }},
-  ]);
+  try {{
+    renderKpiRow('kpi-row-b', [
+      {{ label: 'Estate Club', value: fmtMoney(d.vista_b.estate_total) }},
+      {{ label: "Founder's Club", value: fmtMoney(d.vista_b.founders_total) }},
+      {{ label: 'Review Cases', value: d.vista_b.review_cases.length }},
+    ]);
 
-  new Chart(document.getElementById('chart-packages'), {{
-    type: 'bar',
-    data: {{
-      labels: d.vista_b.packages,
-      datasets: [
-        {{ label: 'Sub Total ($)', data: d.vista_b.subtotal, backgroundColor: d.vista_b.colors, yAxisID: 'y' }},
-      ]
-    }},
-    options: {{ indexAxis: 'y', plugins: {{ legend: {{ display:false }} }},
-                scales: {{ x: {{ grid: {{ color: '{chart_grid}' }} }} }} }}
-  }});
+    renderTable('table-packages', ['Package', 'Orders', 'Sub Total', 'Avg Order Value'],
+      d.vista_b.packages.map(function(p, i) {{
+        return {{ cells: [
+          {{ v: p }},
+          {{ v: d.vista_b.orders[i].toLocaleString('en-US'), num:true }},
+          {{ v: fmtMoney(d.vista_b.subtotal[i]), num:true }},
+          {{ v: fmtMoney(d.vista_b.aov[i]), num:true }},
+        ] }};
+      }})
+    );
 
-  renderTable('table-packages', ['Package', 'Orders', 'Sub Total', 'Avg Order Value'],
-    d.vista_b.packages.map(function(p, i) {{
-      return {{ cells: [
-        {{ v: p }},
-        {{ v: d.vista_b.orders[i].toLocaleString('en-US'), num:true }},
-        {{ v: fmtMoney(d.vista_b.subtotal[i]), num:true }},
-        {{ v: fmtMoney(d.vista_b.aov[i]), num:true }},
-      ] }};
-    }})
-  );
-
-  var reviewRows = d.vista_b.review_cases.map(function(r) {{
-    return {{ cells: Object.keys(r).map(function(k) {{ return {{ v: r[k] }}; }}) }};
-  }});
-  var reviewHeaders = d.vista_b.review_cases.length ? Object.keys(d.vista_b.review_cases[0]) : ['Order Number', 'Date', 'Channel', 'SubTotal'];
-  renderTable('table-review', reviewHeaders, reviewRows);
-
-  // ---- Geografía (Club) — tabla siempre disponible, mapa es mejora progresiva ----
-  var geo = d.vista_b.geo;
-  renderTable('table-geo-states', ['State', 'Orders', 'Sub Total'],
-    geo.states.map(function(s, i) {{
-      return {{ cells: [
-        {{ v: s }},
-        {{ v: geo.state_orders[i].toLocaleString('en-US'), num:true }},
-        {{ v: fmtMoney(geo.state_subtotal[i]), num:true }},
-      ] }};
-    }})
-  );
-  renderTable('table-geo-zip', ['ZIP', 'Orders', 'Sub Total'],
-    geo.zips.map(function(z, i) {{
-      return {{ cells: [
-        {{ v: z }},
-        {{ v: geo.zip_orders[i].toLocaleString('en-US'), num:true }},
-        {{ v: fmtMoney(geo.zip_subtotal[i]), num:true }},
-      ] }};
-    }})
-  );
-  if (geo.unresolved_rows > 0) {{
-    document.getElementById('table-geo-states').insertAdjacentHTML('afterend',
-      '<p style="font-size:11px;color:var(--brand-gray);margin-top:6px;">' +
-      geo.unresolved_rows + ' órdenes de club sin estado de envío/facturación identificable.</p>');
-  }}
-
-  (function drawChoropleth() {{
-    var svg = document.getElementById('chart-geo-states');
-    var svgns = 'http://www.w3.org/2000/svg';
-    var subByCode = {{}}, ordersByCode = {{}};
-    geo.states.forEach(function(code, i) {{
-      subByCode[code] = geo.state_subtotal[i];
-      ordersByCode[code] = geo.state_orders[i];
+    var reviewRows = d.vista_b.review_cases.map(function(r) {{
+      return {{ cells: Object.keys(r).map(function(k) {{ return {{ v: r[k] }}; }}) }};
     }});
-    var maxSub = Math.max.apply(null, geo.state_subtotal.concat([1]));
+    var reviewHeaders = d.vista_b.review_cases.length ? Object.keys(d.vista_b.review_cases[0]) : ['Order Number', 'Date', 'Channel', 'SubTotal'];
+    renderTable('table-review', reviewHeaders, reviewRows);
+  }} catch (e) {{ console.error('Error en Vista B tablas/kpis:', e); }}
 
-    function colorFor(v) {{
-      if (!v) return getComputedStyle(document.documentElement).getPropertyValue('--map-empty').trim() || '#e4ded2';
-      var t = maxSub ? v / maxSub : 0;
-      var c0 = [243,227,218], c1 = [140,47,47];
-      var rgb = c0.map(function(c,i) {{ return Math.round(c + (c1[i]-c)*t); }});
-      return 'rgb(' + rgb.join(',') + ')';
+  function tryRenderPackagesChart() {{
+    if (typeof Chart === 'undefined') {{
+      setTimeout(tryRenderPackagesChart, 150);
+      return;
     }}
-    var strokeColor = getComputedStyle(document.documentElement).getPropertyValue('--brand-navy').trim() || '#003057';
+    try {{
+      new Chart(document.getElementById('chart-packages'), {{
+        type: 'bar',
+        data: {{
+          labels: d.vista_b.packages,
+          datasets: [
+            {{ label: 'Sub Total ($)', data: d.vista_b.subtotal, backgroundColor: d.vista_b.colors, yAxisID: 'y' }},
+          ]
+        }},
+        options: {{
+          indexAxis: 'y',
+          responsive: true,
+          plugins: {{
+            legend: {{ display: false }},
+            tooltip: {{
+              backgroundColor: 'rgba(0, 48, 87, 0.95)',
+              titleFont: {{ size: 14, weight: 'bold', family: "'EB Garamond', Georgia, serif" }},
+              bodyFont: {{ size: 13, family: "'EB Garamond', Georgia, serif" }},
+              padding: 12,
+              borderColor: '#A67C52',
+              borderWidth: 1.5,
+              callbacks: {{
+                label: function(ctx) {{
+                  var idx = ctx.dataIndex;
+                  var val = fmtMoney(ctx.raw);
+                  var ords = d.vista_b.orders[idx].toLocaleString('en-US');
+                  var aov = fmtMoney(d.vista_b.aov[idx]);
+                  return [
+                    ' Venta Neta: ' + val,
+                    ' Volumen: ' + ords + ' órdenes',
+                    ' Ticket Promedio (AOV): ' + aov
+                  ];
+                }}
+              }}
+            }}
+          }},
+          scales: {{ x: {{ grid: {{ color: '{chart_grid}' }} }} }}
+        }}
+      }});
+    }} catch (e) {{ console.error('Error al inicializar gráfica de paquetes:', e); }}
+  }}
+  tryRenderPackagesChart();
 
-    Object.keys(US_STATES_GEO.paths).forEach(function(code) {{
-      var path = document.createElementNS(svgns, 'path');
-      path.setAttribute('d', US_STATES_GEO.paths[code]);
-      path.setAttribute('fill', colorFor(subByCode[code] || 0));
-      path.setAttribute('stroke', strokeColor);
-      path.setAttribute('stroke-width', '1');
-      path.setAttribute('stroke-linejoin', 'round');
-      var title = document.createElementNS(svgns, 'title');
-      title.textContent = code + ': ' + (ordersByCode[code] || 0) + ' orders, ' + fmtMoney(subByCode[code] || 0);
-      path.appendChild(title);
-      svg.appendChild(path);
-    }});
-    Object.keys(US_STATES_GEO.centroids).forEach(function(code) {{
-      if (!subByCode[code]) return;
-      var c = US_STATES_GEO.centroids[code];
-      var label = document.createElementNS(svgns, 'text');
-      label.setAttribute('x', c[0]); label.setAttribute('y', c[1]);
-      label.setAttribute('text-anchor', 'middle');
-      label.setAttribute('font-size', '9');
-      label.setAttribute('fill', 'var(--brand-gray)');
-      label.textContent = code;
-      svg.appendChild(label);
-    }});
+  // ---- Geografía (Club) ----
+  try {{
+    var geo = d.vista_b.geo;
+    renderKpiRow('kpi-row-geo', [
+      {{ label: 'Estados con Envíos', value: geo.states.length }},
+      {{ label: 'Venta Total Club', value: fmtMoney(geo.state_subtotal.reduce(function(a,b){{return a+b;}},0)) }},
+      {{ label: 'Top Estado', value: (geo.states[0] || 'n/a') + ' (' + fmtMoney(geo.state_subtotal[0] || 0) + ')' }},
+    ]);
 
-    // ---- Puntos por ZIP (overlay sobre el choropleth) ----
-    var zipPoints = geo.zip_points || [];
-    var maxZipOrders = Math.max.apply(null, zipPoints.map(function(p) {{ return p.orders; }}).concat([1]));
-    zipPoints.forEach(function(p) {{
-      var r = 3 + (p.orders / maxZipOrders) * 9;
-      var circle = document.createElementNS(svgns, 'circle');
-      circle.setAttribute('cx', p.x); circle.setAttribute('cy', p.y); circle.setAttribute('r', r);
-      circle.setAttribute('fill', 'var(--brand-tan)');
-      circle.setAttribute('stroke', '#fff'); circle.setAttribute('stroke-width', '1');
-      circle.setAttribute('opacity', '0.9');
-      var title = document.createElementNS(svgns, 'title');
-      title.textContent = 'ZIP ' + p.zip + ': ' + p.orders + ' orders, ' + fmtMoney(p.subtotal);
-      circle.appendChild(title);
-      svg.appendChild(circle);
-    }});
-  }})();
+    renderTable('table-geo-states', ['State', 'Orders', 'Sub Total'],
+      geo.states.map(function(s, i) {{
+        return {{ cells: [
+          {{ v: s }},
+          {{ v: geo.state_orders[i].toLocaleString('en-US'), num:true }},
+          {{ v: fmtMoney(geo.state_subtotal[i]), num:true }},
+        ] }};
+      }})
+    );
+    renderTable('table-geo-zip', ['ZIP', 'Orders', 'Sub Total'],
+      geo.zips.map(function(z, i) {{
+        return {{ cells: [
+          {{ v: z }},
+          {{ v: geo.zip_orders[i].toLocaleString('en-US'), num:true }},
+          {{ v: fmtMoney(geo.zip_subtotal[i]), num:true }},
+        ] }};
+      }})
+    );
+    if (geo.unresolved_rows > 0) {{
+      var statesTable = document.getElementById('table-geo-states');
+      if (statesTable) {{
+        statesTable.insertAdjacentHTML('afterend',
+          '<p style="font-size:11px;color:var(--brand-gray);margin-top:6px;">' +
+          geo.unresolved_rows + ' órdenes de club sin estado de envío/facturación identificable.</p>');
+      }}
+    }}
+  }} catch (e) {{ console.error('Error en tablas de geografía:', e); }}
+
+  // ---- Interactividad de Pop-ups sobre el Mapa SVG Pre-renderizado ----
+  try {{
+    (function setupMapInteractivity() {{
+      var tooltip = document.getElementById('geo-tooltip');
+      if (!tooltip) return;
+
+      function showTip(e, html) {{
+        tooltip.innerHTML = html;
+        tooltip.style.display = 'block';
+        tooltip.style.left = (e.pageX + 14) + 'px';
+        tooltip.style.top = (e.pageY + 14) + 'px';
+      }}
+      function moveTip(e) {{
+        tooltip.style.left = (e.pageX + 14) + 'px';
+        tooltip.style.top = (e.pageY + 14) + 'px';
+      }}
+      function hideTip() {{
+        tooltip.style.display = 'none';
+      }}
+
+      document.querySelectorAll('.state-path').forEach(function(path) {{
+        path.addEventListener('mouseenter', function(e) {{
+          var code = path.getAttribute('data-code');
+          var ords = Number(path.getAttribute('data-orders') || 0).toLocaleString('en-US');
+          var sub = fmtMoney(path.getAttribute('data-subtotal') || 0);
+          var hasSales = Number(path.getAttribute('data-subtotal') || 0) > 0;
+          showTip(e, '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#C79F6C;margin-bottom:2px;">🇺🇸 Estado de Destino</div>' +
+                     '<div style="font-weight:bold;font-size:15px;color:#FFFBEF;margin-bottom:4px;">' + code + (hasSales ? '' : ' <span style="font-size:11px;color:#bbb;font-weight:normal;">(Sin envíos)</span>') + '</div>' +
+                     '<div>Órdenes de Club: <strong>' + ords + '</strong></div>' +
+                     '<div>Facturación Neta: <strong>' + sub + '</strong></div>');
+        }});
+        path.addEventListener('mousemove', moveTip);
+        path.addEventListener('mouseleave', hideTip);
+      }});
+
+      document.querySelectorAll('.zip-circle').forEach(function(circle) {{
+        circle.addEventListener('mouseenter', function(e) {{
+          var z = circle.getAttribute('data-zip');
+          var ords = Number(circle.getAttribute('data-orders') || 0).toLocaleString('en-US');
+          var sub = fmtMoney(circle.getAttribute('data-subtotal') || 0);
+          showTip(e, '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#C79F6C;margin-bottom:2px;">📍 Código Postal (ZIP Code)</div>' +
+                     '<div style="font-weight:bold;font-size:15px;color:#FFFBEF;margin-bottom:4px;">ZIP ' + z + '</div>' +
+                     '<div>Órdenes de Club: <strong>' + ords + ' envíos</strong></div>' +
+                     '<div>Facturación Neta: <strong>' + sub + '</strong></div>' +
+                     '<div style="font-size:10px;color:#bbb;margin-top:4px;border-top:1px solid rgba(255,255,255,0.15);padding-top:2px;">Punto específico de entrega a socios de club</div>');
+        }});
+        circle.addEventListener('mousemove', moveTip);
+        circle.addEventListener('mouseleave', hideTip);
+      }});
+    }})();
+  }} catch (e) {{ console.error('Error en interactividad del mapa:', e); }}
 
   // Click-through: Vista A -> Vista B filtrado (placeholder simple)
   showTab('tab-a');
@@ -757,6 +1054,19 @@ def load_data_file(path_str: str | Path) -> pd.DataFrame:
         except UnicodeDecodeError:
             return pd.read_csv(p, encoding="latin1")
     return pd.read_excel(p)
+
+
+CHART_JS_PATH = PROJECT_ROOT / "Scripts" / "chart.umd.min.js"
+
+
+def get_chart_js_inline() -> str:
+    """Retorna el código de Chart.js local para embeber de forma 100% standalone."""
+    if CHART_JS_PATH.exists():
+        try:
+            return CHART_JS_PATH.read_text(encoding="utf-8")
+        except Exception:
+            return ""
+    return ""
 
 
 # ==============================================================================
@@ -783,6 +1093,8 @@ def generate(order_sales_path: str, financial_report_path: str | None,
         title=title,
         period_label=period_label,
         font_faces=font_face_css(),
+        chart_js_inline=get_chart_js_inline(),
+        svg_map_html=render_svg_map_html(vista_b["geo"]),
         logo_html=f'<img src="{logo_white_data_uri()}" alt="Sullivan Rutherford Estate" />' if logo_white_data_uri() else "",
         report_data_json=json.dumps(report_data),
         us_states_geo_json=US_STATES_GEO_JSON,

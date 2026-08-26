@@ -47,9 +47,9 @@ El éxito de este sistema radica en el **desacoplamiento estricto** entre cuatro
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-El principio fundamental es la **entrega tripartita simultánea**:
-1. **PDF Directivo (~25-35 págs)**: Pensado para el C-Level / Consejo; visual, estricto en jerarquía tipográfica, márgenes y páginas temáticas auto-contenidas.
-2. **Excel Analítico (6-8 Hojas)**: Pensado para Finanzas y Control de Gestión; fórmulas nativas, semáforos, tablas dinámicas y gráficas con ejes legibles.
+El principio fundamental del modelo es la **entrega directiva**:
+1. **PDF Directivo (~25-35 págs, adaptado a ~10 págs en Sullivan)**: Pensado para el C-Level / Consejo; visual, estricto en jerarquía tipográfica, márgenes y páginas temáticas auto-contenidas.
+2. **Excel Analítico (6-8 Hojas)**: *[POR AHORA DESCARTADO]* — Pensado para Finanzas y Control de Gestión; fórmulas nativas, semáforos y tablas dinámicas. **Decisión de Negocio:** Por ahora se descarta su desarrollo para esta fase, ya que el cliente no lo requiere y el PDF Ejecutivo junto al Dashboard HTML cubren el 100% de las necesidades directivas, comerciales y de reconciliación.
 3. **Dashboard Web HTML**: Pensado para el equipo comercial y operativo; interactivo, sin backend (standalone), recálculo de KPIs en tiempo real, responsive y exportable.
 
 ---
@@ -159,8 +159,10 @@ Puntos a adaptar para la nueva marca:
   - Cada página debe tener su cabecera de marca, título de sección, tabla comparativa (Real vs Plan vs Año Ant.) y gráfica de barras/línea.
   - Páginas de resumen general $\rightarrow$ Desglose por Canal $\rightarrow$ Fichas individuales por SKU $\rightarrow$ Fichas individuales por Cliente Top.
 
-#### 2. Libro Excel (`xlsx_generator.py` con openpyxl)
-- **Estructura de Pestañas**:
+#### 2. Libro Excel (`xlsx_generator.py` con openpyxl) — *[POR AHORA DESCARTADO / FUERA DE ALCANCE]*
+> **⚠️ Estado de Implementación:** Este módulo está **descartado por el momento**. El cliente no lo necesita en esta etapa, ya que el **PDF Directivo** y el **Dashboard HTML** satisfacen plenamente las necesidades operativas y de visualización. La siguiente estructura se conserva como blueprint de referencia técnica si en el futuro el área contable lo requiere:
+
+- **Estructura de Pestañas (Referencia Futura)**:
   1. *Resumen Ejecutivo* (KPI cards + semáforo de cumplimiento).
   2. *Comparativo Temporal* (WoW, MoM, YoY, YTD).
   3. *Por Producto* (Ranking, volumen, precio unitario).
@@ -271,9 +273,9 @@ reporte_nombre_marca/
 │   ├── data_processor.py           # Ingesta, limpieza y cálculos temporales
 │   ├── logo_processor.py           # Adaptación y renderizado de logos
 │   ├── market_context.py           # Consultas y resumen de coyuntura de mercado
-│   ├── pdf_generator.py            # Motor ReportLab
-│   ├── xlsx_generator.py           # Motor openpyxl
-│   ├── dashboard_generator.py      # Motor HTML/CSS/Chart.js interactivo
+│   ├── pdf_generator.py            # Motor ReportLab (Activo)
+│   ├── xlsx_generator.py           # Motor openpyxl (Opcional / Descartado por ahora)
+│   ├── dashboard_generator.py      # Motor HTML/CSS/Chart.js interactivo (Activo)
 │   └── generate_report.py          # CLI Orquestador
 ├── AGENTS.md                       # Reglas de interacción para asistentes IA
 ├── requirements.txt                # Dependencias (pandas, reportlab, openpyxl, cairosvg, etc.)
