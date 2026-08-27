@@ -112,6 +112,11 @@ if (Test-Path $OutputZipPath) {
 
 # Crear archivo ZIP usando System.IO.Compression para compatibilidad total de rutas Unix
 Write-Host "Generando archivo ZIP comprimido..." -ForegroundColor Yellow
+# En Windows PowerShell 5.1 hay que cargar AMBOS ensamblados:
+#   - System.IO.Compression         -> ZipArchiveMode, CompressionLevel, ZipArchive
+#   - System.IO.Compression.FileSystem -> ZipFile, ZipFileExtensions
+# Cargar solo el segundo provoca "No se encuentra el tipo [System.IO.Compression.ZipArchiveMode]".
+Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 $zip = [System.IO.Compression.ZipFile]::Open($OutputZipPath, [System.IO.Compression.ZipArchiveMode]::Create)
