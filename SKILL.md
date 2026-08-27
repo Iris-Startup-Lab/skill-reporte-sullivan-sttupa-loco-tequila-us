@@ -111,8 +111,8 @@ El proceso genera simultáneamente dos entregables complementarios en la carpeta
    * **Pestaña 2 (Club Deep Dive - Vista B):** Análisis de membresías Estate vs Founder's, tabla de paquetes y AOV, y casos especiales de revisión (*Admin/POS Marked as Club*).
    * **Pestaña 3 (Geographic Distribution):** Mapa coroplético de EEUU con proyección Albers y overlay de centroides ZIP de los envíos de Club.
 2. **Reporte Directivo en PDF** (`sullivan_report_<periodo>.pdf`):
-   * Documento formal de ~10 páginas generado con ReportLab.
-   * Portada con sello de reconciliación, resumen ejecutivo, cascada de clasificación (prioridades 1-9), tabla detallada y apéndice técnico.
+   * Documento formal de 9 páginas generado con ReportLab, con maquetación adaptativa (las tablas y gráficas se ajustan al espacio de cada página).
+   * Portada con sello de reconciliación, resumen ejecutivo, cascada de clasificación (prioridades 1-9) con glosario, tabla detallada, reconciliación con diagnósticos, Club Deep Dive, casos de revisión y apéndice técnico.
 
 ---
 

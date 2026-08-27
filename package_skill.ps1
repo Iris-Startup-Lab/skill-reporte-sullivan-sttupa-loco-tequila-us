@@ -129,6 +129,48 @@ finally {
     $zip.Dispose()
 }
 
+# --------------------------------------------------------------------------
+# Verificación de portabilidad a Linux. El paquete se consume en ambientes
+# Linux (Claude ejecuta las skills ahí), donde:
+#   - una entrada con '\' se extrae como UN archivo llamado "Scripts\x.py",
+#   - el sistema es case-sensitive, así que dos nombres que solo difieren en
+#     mayúsculas colisionan,
+#   - un .sh con CRLF falla con "bad interpreter: ...^M".
+# Mejor reventar aquí que entregar un ZIP que no arranca.
+# --------------------------------------------------------------------------
+Write-Host "Verificando portabilidad a Linux..." -ForegroundColor Yellow
+$verify = [System.IO.Compression.ZipFile]::OpenRead($OutputZipPath)
+try {
+    $entries = $verify.Entries | ForEach-Object { $_.FullName }
+
+    $badPaths = $entries | Where-Object {
+        $_ -like '*\*' -or $_.StartsWith('/') -or ($_ -split '/') -contains '..'
+    }
+    if ($badPaths) {
+        throw "Entradas con rutas no portables: $($badPaths -join ', ')"
+    }
+
+    $clashes = $entries | Group-Object { $_.ToLowerInvariant() } | Where-Object { $_.Count -gt 1 }
+    if ($clashes) {
+        throw "Nombres que solo difieren en capitalización (rompen en Linux): $(($clashes | ForEach-Object { $_.Group -join ' vs ' }) -join '; ')"
+    }
+
+    foreach ($entry in $verify.Entries) {
+        if ($entry.FullName -like '*.sh') {
+            $reader = New-Object System.IO.StreamReader($entry.Open())
+            try { $text = $reader.ReadToEnd() } finally { $reader.Dispose() }
+            if ($text.Contains("`r`n")) {
+                throw "$($entry.FullName) tiene CRLF; en Linux falla el shebang."
+            }
+        }
+    }
+
+    Write-Host "  OK: $($entries.Count) entradas con rutas POSIX, sin colisiones de capitalización, .sh con LF." -ForegroundColor Green
+}
+finally {
+    $verify.Dispose()
+}
+
 $FinalSizeBytes = (Get-Item $OutputZipPath).Length
 $FinalSizeMB = [math]::Round($FinalSizeBytes / 1MB, 2)
 

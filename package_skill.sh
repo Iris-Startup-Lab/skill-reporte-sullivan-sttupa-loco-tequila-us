@@ -32,17 +32,30 @@ if [[ -f "$FINAL_ZIP" ]]; then
     rm -f "$FINAL_ZIP"
 fi
 
-# Detectar binario de Python disponible
+# Detectar binario de Python disponible. Solo nombres en PATH y rutas estándar de
+# Unix: nada de rutas personales de una máquina concreta (este script tiene que
+# correr igual en Linux, macOS, WSL y Git Bash).
 PY_BIN=""
-for candidate in python3 python py "/e/Users/1167486/AppData/Local/anaconda3/python" "/c/Python3*/python" "/usr/bin/python3" "/usr/local/bin/python3"; do
+for candidate in python3 python py; do
     if command -v "$candidate" &>/dev/null; then
         PY_BIN="$(command -v "$candidate")"
         break
-    elif [[ -x "$candidate" ]]; then
-        PY_BIN="$candidate"
-        break
     fi
 done
+if [[ -z "$PY_BIN" ]]; then
+    # Rutas estándar + el intérprete del ambiente conda activo (vía variable de
+    # entorno, no una ruta fija): en Git Bash sobre Windows, conda suele no estar
+    # en el PATH del shell aunque el ambiente esté activado.
+    for candidate in \
+        /usr/bin/python3 /usr/local/bin/python3 /opt/homebrew/bin/python3 \
+        "${CONDA_PREFIX:-}/bin/python" "${CONDA_PREFIX:-}/python" "${CONDA_PREFIX:-}/python.exe"
+    do
+        if [[ -n "$candidate" && -x "$candidate" ]]; then
+            PY_BIN="$candidate"
+            break
+        fi
+    done
+fi
 
 if [[ -n "$PY_BIN" ]]; then
     echo "Usando motor Python ($PY_BIN) para empaquetado cross-platform..."
@@ -96,7 +109,7 @@ with zipfile.ZipFile(output_zip, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as 
         
         rel_root = os.path.relpath(root, project_root)
         if rel_root != ".":
-            parts = set(rel_root.replace("\\\\", "/").split("/"))
+            parts = set(rel_root.replace(os.sep, "/").split("/"))
             if parts.intersection(exclude_dirs):
                 continue
 
@@ -108,14 +121,40 @@ with zipfile.ZipFile(output_zip, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as 
                 continue
 
             full_path = os.path.join(root, f)
-            arcname = os.path.relpath(full_path, project_root).replace("\\\\", "/")
-            
+            # El ZIP debe guardar SIEMPRE rutas con '/': si se empaqueta desde
+            # Windows (Git Bash) y quedan backslashes, al extraer en Linux se crea
+            # un único archivo llamado literalmente "Scripts\dashboard_generator.py"
+            # y la skill no arranca. os.sep cubre ambos sistemas.
+            arcname = os.path.relpath(full_path, project_root).replace(os.sep, "/")
+            if "\\" in arcname:
+                raise SystemExit(f"ERROR: ruta no portable en el ZIP: {arcname!r}")
+
             zf.write(full_path, arcname)
             count += 1
             total_uncompressed += os.path.getsize(full_path)
 
+# Verificación de portabilidad: el paquete se consume en Linux, así que ninguna
+# entrada puede llevar backslash, ser absoluta ni contener '..'.
+with zipfile.ZipFile(output_zip) as check:
+    entries = check.namelist()
+    offenders = [n for n in entries
+                 if "\\" in n or n.startswith("/") or ".." in n.split("/")]
+    if offenders:
+        raise SystemExit("ERROR: entradas no portables: " + ", ".join(offenders[:5]))
+    lowered = {}
+    for n in entries:
+        lowered.setdefault(n.lower(), []).append(n)
+    clashes = [v for v in lowered.values() if len(v) > 1]
+    if clashes:
+        raise SystemExit("ERROR: nombres que solo difieren en capitalización "
+                         "(rompen en Linux): " + str(clashes[:3]))
+    for n in entries:
+        if n.endswith(".sh") and b"\r\n" in check.read(n):
+            raise SystemExit(f"ERROR: {n} tiene CRLF; en Linux falla el shebang.")
+
 print(f"Archivos empaquetados: {count}")
 print(f"Tamaño sin comprimir: {round(total_uncompressed / (1024*1024), 2)} MB")
+print(f"Portabilidad Linux verificada: {len(entries)} entradas, rutas POSIX, sin colisiones de capitalización.")
 EOF
 
 elif command -v zip &>/dev/null; then
@@ -144,19 +183,19 @@ else
     exit 1
 fi
 
-if [[ ! -f "$OUTPUT_ZIP" ]]; then
-    echo "ERROR: No se pudo generar el archivo ZIP: $OUTPUT_ZIP" >&2
+if [[ ! -f "$FINAL_ZIP" ]]; then
+    echo "ERROR: No se pudo generar el archivo ZIP: $FINAL_ZIP" >&2
     exit 1
 fi
 
-FINAL_BYTES=$(wc -c < "$OUTPUT_ZIP" | tr -d ' \r\n')
+FINAL_BYTES=$(wc -c < "$FINAL_ZIP" | tr -d ' \r\n')
 FINAL_MB=$(awk "BEGIN {printf \"%.2f\", $FINAL_BYTES / 1048576}")
 MAX_BYTES=$((30 * 1024 * 1024))
 
 echo "----------------------------------------------------------------------"
 echo "  PAQUETE GENERADO CON ÉXITO"
 echo "----------------------------------------------------------------------"
-echo "Destino: $(pwd)/$OUTPUT_ZIP"
+echo "Destino: $FINAL_ZIP"
 echo "Tamaño final comprimido: ${FINAL_MB} MB"
 
 if (( FINAL_BYTES < MAX_BYTES )); then

@@ -1,10 +1,12 @@
 # AGENTS.md — Guía de Operación y Pruebas para Agentes IA y Usuarios
 
+Este es el documento principal que deben leer los agentes, los usuarios pueden leer el README.md o el SKILL.md para entender cómo funciona el repositorio y cómo usarlo.
+
 ## 🐍 Configuración del Entorno Conda
 
 Todos los comandos requieren ejecutarse dentro del entorno de Python **`data_analytics_science`**.
 
-### Activación en PowerShell (Windows)
+### Activación en PowerShell (Windows) Entorno principal del desarrollador (No lo dejan usar Linux...)
 
 ```powershell
 # 1. Cargar el hook de Conda
@@ -95,3 +97,5 @@ Todo agente que atienda una solicitud de generación de reportes en este reposit
     ```
 
 ### 4. Los cambios en Git los hace el usuario no el agente
+
+No hacer git commits o git push o git pull, todo lo relacionado a git

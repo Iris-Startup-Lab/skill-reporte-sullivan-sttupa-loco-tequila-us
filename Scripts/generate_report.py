@@ -17,11 +17,19 @@ import argparse
 import re
 import sys
 from pathlib import Path
-from datetime import datetime
 
-# Importar generadores locales
-from dashboard_generator import generate as generate_dashboard
-from pdf_generator import build_pdf as generate_pdf
+# Forzar UTF-8 en stdout/stderr ANTES de cualquier otro import: en consolas
+# Windows legacy (cp1252) los caracteres no-ASCII (—, ó, á, ñ) se corrompen, y
+# los generadores pueden emitir avisos durante su propia importación.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError, OSError):
+        pass
+
+# Los generadores se importan de forma DIFERIDA dentro de run_sullivan(): así un
+# fallo en el motor de dashboard (p. ej. una dependencia gráfica ausente) no
+# tumba el CLI cuando solo se pidió --format pdf, y al revés.
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -90,6 +98,7 @@ def run_sullivan(order_sales_path: Path, financial_report_path: Path | None,
     if output_format in ("all", "html", "dashboard"):
         print("  -> Generando Dashboard HTML interactivo...")
         try:
+            from dashboard_generator import generate as generate_dashboard
             generate_dashboard(
                 order_sales_path=str(order_sales_path),
                 financial_report_path=str(financial_report_path) if financial_report_path else None,
@@ -106,6 +115,7 @@ def run_sullivan(order_sales_path: Path, financial_report_path: Path | None,
     if output_format in ("all", "pdf"):
         print("  -> Generando Reporte Ejecutivo en PDF...")
         try:
+            from pdf_generator import build_pdf as generate_pdf
             generate_pdf(
                 order_sales_path=str(order_sales_path),
                 financial_report_path=str(financial_report_path) if financial_report_path else None,
@@ -199,14 +209,6 @@ def interactive_menu():
 
 
 def main():
-    # Forzar UTF-8 en stdout/stderr: en consolas Windows legacy (cp1252) los
-    # caracteres no-ASCII (—, ó, á, ñ) rompen o se corrompen.
-    for _stream in (sys.stdout, sys.stderr):
-        try:
-            _stream.reconfigure(encoding="utf-8")
-        except (AttributeError, ValueError, OSError):
-            pass
-
     parser = argparse.ArgumentParser(
         description="Generador agnóstico y orquestador de reportes ejecutivos para marcas."
     )
@@ -241,9 +243,9 @@ def main():
     )
     parser.add_argument(
         "--format",
-        choices=["all", "html", "pdf"],
+        choices=["all", "html", "dashboard", "pdf"],
         default="all",
-        help="Formato de reporte a generar: 'all' (HTML + PDF), 'html' o 'pdf'."
+        help="Formato a generar: 'all' (HTML + PDF), 'html' (alias: 'dashboard') o 'pdf'."
     )
     parser.add_argument(
         "--interactive",

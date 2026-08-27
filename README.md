@@ -141,8 +141,9 @@ Cuando se procesa la marca Sullivan, el sistema genera simultáneamente:
    * **Tab 3 — Geographic Distribution:** mapa coroplético de EEUU con proyección cónica Albers y overlay de centroides ZIP de los envíos de Club.
    * Totalmente auto-contenido: no requiere internet ni dependencias externas en tiempo de ejecución.
 2. **Reporte Directivo en PDF** (`Output/sullivan_report_<periodo>.pdf`):
-   * ~10 páginas en formato carta de alta resolución directiva (ReportLab).
-   * Portada con sello de reconciliación contable, resumen ejecutivo, tabla formal de cascada de prioridades (1 a 9) y desglose detallado de ventas.
+   * 9 páginas en formato carta de alta resolución directiva (ReportLab).
+   * Portada con sello de reconciliación contable, resumen ejecutivo, cascada de prioridades (1 a 9) con glosario de categorías, desglose detallado de ventas, reconciliación con diagnósticos, Club Deep Dive y casos de revisión.
+   * La maquetación es adaptativa: alto de filas, tipografía y anchos de columna se ajustan al espacio de cada página, de modo que las tablas y gráficas no queden pequeñas ni dejen huecos.
 
 ---
 

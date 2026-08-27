@@ -3,14 +3,16 @@
  SULLIVAN RUTHERFORD ESTATE — GENERADOR BASE DE DASHBOARD (Vista A + Vista B)
 ================================================================================
 Genera un dashboard HTML standalone (una sola pestaña de navegador, un solo
-archivo, sin backend) con DOS pestañas internas:
+archivo, sin backend) con TRES pestañas internas:
 
     Tab 1 — "DTC Reconciliation"   (Propuesta A, la que pide el cliente)
             Las 9 categorías finales de venta DTC + reconciliación contra
-            Net Sales del Financial Report.
+            Net Sales del Financial Report (con filtro por canal).
     Tab 2 — "Club Deep Dive"       (Propuesta B)
             Estate vs Founder's, desglose por paquete, AOV, y tabla de
             "casos de revisión" (ej. Admin/POS Marked as Club).
+    Tab 3 — "Geographic Distribution"
+            Mapa coroplético de envíos de Club (estados + ZIPs).
 
 Este script es la BASE para la skill que tú vas a construir después — está
 pensado para que puedas leer/ajustar la lógica de clasificación, los tokens
@@ -37,6 +39,7 @@ import io
 import json
 import math
 import re
+import sys
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -51,6 +54,8 @@ import pandas as pd
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 FONT_DIR = PROJECT_ROOT / "Fonts" / "Font_sullivan" / "EB_Garamond" / "static"
 LOGO_WHITE_SVG = PROJECT_ROOT / "Imagenes_iconos" / "Sullivan-White.svg"
+LOGO_BLACK_SVG = PROJECT_ROOT / "Imagenes_iconos" / "Sullivan-Black.svg"
+LOGO_WHITE_PNG = PROJECT_ROOT / "Imagenes_iconos" / "Sullivan-White.png"
 
 # ==============================================================================
 # 0.1 PROYECCIÓN ALBERS (EEUU continental) — MISMOS parámetros y escala usados
@@ -155,6 +160,27 @@ CATEGORY_COLORS = {
 }
 CATEGORY_ORDER = list(CATEGORY_COLORS.keys())
 
+# Filas que NO forman parte de la cascada de 9 prioridades: existen solo para que
+# el total cuadre al centavo y para que nada quede fuera del reporte en silencio.
+DIAGNOSTIC_CATEGORIES = ("Club - Review (Admin/POS)", "Unassigned")
+
+# Glosario de las 9 categorías finales — un lector directivo no tiene por qué
+# adivinar qué distingue "Telesales" de "Tock". Se muestra en la pestaña A.
+CATEGORY_GLOSSARY = [
+    ("Event", "Inbound order tagged as a private or trade event."),
+    ("Corporate", "Inbound order tagged as a corporate gifting account."),
+    ("Friends & Family", "Inbound order tagged Friends & Family (comped or discounted)."),
+    ("Telesales", "Remaining Inbound: phone and concierge sales taken by the team."),
+    ("Tock", "Web order booked through the Tock reservation platform."),
+    ("Web / Ecommerce", "Remaining Web: self-service purchases on the online store."),
+    ("Tasting Room", "Any POS order rung up on site at the estate."),
+    ("Estate Club", "Club shipment on an Estate program (4 or 6 bottle)."),
+    ("Founder's Club", "Club shipment on a Founder's program (3 bottle to double case)."),
+    ("Club - Review (Admin/POS)",
+     "Diagnostic, not a 10th category: Club-channel lines that name neither program "
+     "(typically admin or POS orders flagged as Club). Kept visible so the total reconciles."),
+]
+
 CLUB_PACKAGE_COLORS = {
     "Estate 4 Bottle":        "#8C2F2F",
     "Estate 6 Bottle":        "#B24B4B",
@@ -211,11 +237,15 @@ def classify_orders(df: pd.DataFrame) -> pd.DataFrame:
     cond_pos = (channel == "pos")
 
     is_club = channel == "club"
-    # Admin/POS marcado como Club: canal Club pero sin Club Title/Package coherente,
-    # o canal distinto de Club con Club Title poblado (anomalía inversa).
-    cond_club_review = is_club & (club_title == "") & (club_package == "")
-    cond_estate = is_club & ~cond_club_review & (club_title.str.contains("Estate", case=False) | club_package.str.contains("Estate", case=False))
-    cond_founders = is_club & ~cond_club_review & ~cond_estate
+    # Prioridades 8 y 9: coincidencia EXPLÍCITA por nombre de programa (no residual),
+    # como especifica Sullivan_data_guide.md. Antes Founder's era el residuo de Club,
+    # así que cualquier programa nuevo o mal capturado se le sumaba en silencio.
+    # Ahora todo renglón de Club que no nombre ni "Estate" ni "Founder" cae en la
+    # fila diagnóstica de revisión (Admin/POS marcado como Club).
+    club_name = club_title + " " + club_package
+    cond_estate = is_club & club_name.str.contains("Estate", case=False, regex=False)
+    cond_founders = is_club & ~cond_estate & club_name.str.contains("Founder", case=False, regex=False)
+    cond_club_review = is_club & ~cond_estate & ~cond_founders
 
     conditions = [cond_event, cond_corp, cond_ff, cond_tele, cond_tock, cond_web,
                   cond_pos, cond_estate, cond_founders, cond_club_review]
@@ -249,23 +279,79 @@ def classify_orders(df: pd.DataFrame) -> pd.DataFrame:
 # ==============================================================================
 # 3. AGREGACIONES PARA LAS 2 VISTAS DEL DASHBOARD
 # ==============================================================================
+def warn(msg: str):
+    """Aviso visible en consola (stderr) — los descuadres silenciosos son el
+    riesgo #1 de este reporte, así que todo supuesto se anuncia."""
+    print(f"  [AVISO] {msg}", file=sys.stderr)
+
+
+def coerce_money(s: pd.Series) -> pd.Series:
+    """
+    Normaliza una columna de montos a float. Un export .csv de Commerce7 trae
+    los importes como TEXTO ("$1,234.00", "(45.00)" para negativos); sin esta
+    normalización `.sum()` concatena strings o devuelve NaN en silencio y el
+    cuadre financiero se cae sin diagnóstico.
+    """
+    if pd.api.types.is_numeric_dtype(s):
+        return pd.to_numeric(s, errors="coerce").fillna(0.0).astype(float)
+    t = s.astype(str).str.strip()
+    negative = t.str.startswith("(") & t.str.endswith(")")
+    t = t.str.replace(r"[^0-9.\-]", "", regex=True)
+    out = pd.to_numeric(t, errors="coerce").fillna(0.0)
+    return out.where(~negative, -out.abs())
+
+
+# Base económica canónica del reporte: venta neta a NIVEL ÍTEM, sin impuestos ni
+# flete. En el export de OrderSales esa columna es 'Product SubTotal'; 'SubTotal'
+# ahí es un total de ORDEN repetido en cada renglón de ítem (sumarlo duplica) y
+# 'Total' incluye impuestos y envío — por eso 'Total' ya no es un fallback válido.
+# En el FinancialReport, en cambio, 'SubTotal' ya es de nivel ítem: cada lado tiene
+# su propio resolvedor y ambos se etiquetan para que el lector sepa qué se comparó.
+SALES_MONEY_COLS = ("Product SubTotal", "SubTotal", "Sub Total")
+FINANCIAL_MONEY_COLS = ("SubTotal", "Sub Total", "Product SubTotal")
+
+
 def money_col(d):
-    for c in ("Product SubTotal", "SubTotal", "Total"):
+    if "Product SubTotal" in d.columns:
+        return "Product SubTotal"
+    for c in ("Sub Total", "SubTotal"):
         if c in d.columns:
+            warn(f"'Product SubTotal' no está en el archivo de ventas; se usa '{c}'. "
+                 "Si ese campo es un total por ORDEN repetido por ítem, el total DTC "
+                 "quedará inflado y el cuadre fallará. Verifica la base antes de publicar.")
             return c
-    raise KeyError("No se encontró columna de monto (Product SubTotal / SubTotal / Total).")
+    raise KeyError(
+        "No se encontró columna de monto a nivel ítem. Se esperaba una de: "
+        + ", ".join(SALES_MONEY_COLS)
+    )
 
 
-def build_vista_a(d: pd.DataFrame) -> dict:
-    amt_col = money_col(d)
-    order_col = "Order Number" if "Order Number" in d.columns else "Id"
+def financial_money_col(fin):
+    for c in FINANCIAL_MONEY_COLS:
+        if c in fin.columns:
+            return c
+    return None
+
+
+def category_order_for(d: pd.DataFrame) -> list:
+    """
+    CATEGORY_ORDER más 'Unassigned' cuando hay renglones sin clasificar: si se
+    descartan (reindex solo sobre las 10 conocidas) el total subcuenta en
+    silencio y la reconciliación falla sin diagnóstico.
+    """
+    if (d["Final Category"] == "Unassigned").any():
+        return CATEGORY_ORDER + ["Unassigned"]
+    return list(CATEGORY_ORDER)
+
+
+def _aggregate_categories(d: pd.DataFrame, amt_col: str, order_col: str, cat_order: list) -> dict:
     g = d.groupby("Final Category").agg(
         orders=(order_col, "nunique"),
         subtotal=(amt_col, "sum"),
-    ).reindex(CATEGORY_ORDER).fillna(0).reset_index()
-    total_dtc = g["subtotal"].sum()
-    g["pct"] = np.where(total_dtc > 0, (g["subtotal"] / total_dtc * 100).round(2), 0)
-    # Ordenar categorías de mayor a menor por venta neta (SubTotal)
+    ).reindex(cat_order).fillna(0).reset_index()
+    total = float(g["subtotal"].sum())
+    g["pct"] = np.where(total > 0, (g["subtotal"] / total * 100).round(2), 0)
+    # Ordenar categorías de mayor a menor por venta neta
     g = g.sort_values(by="subtotal", ascending=False).reset_index(drop=True)
     return {
         "categories": g["Final Category"].tolist(),
@@ -273,8 +359,37 @@ def build_vista_a(d: pd.DataFrame) -> dict:
         "subtotal": g["subtotal"].round(2).tolist(),
         "pct": g["pct"].tolist(),
         "colors": [CATEGORY_COLORS.get(c, "#656565") for c in g["Final Category"]],
-        "total_dtc": round(float(total_dtc), 2),
+        "total_dtc": round(total, 2),
+        # Órdenes ÚNICAS del subconjunto: sumar el nunique por categoría cuenta
+        # dos veces una orden con ítems en categorías distintas.
+        "total_orders": int(d[order_col].nunique()),
     }
+
+
+def build_vista_a(d: pd.DataFrame) -> dict:
+    return _aggregate_categories(d, money_col(d),
+                                 "Order Number" if "Order Number" in d.columns else "Id",
+                                 category_order_for(d))
+
+
+def build_vista_a_by_channel(d: pd.DataFrame) -> dict:
+    """
+    Vista A desglosada por canal origen (POS / Web / Club / Inbound). Alimenta el
+    filtro "Channel" de la pestaña DTC: cada canal conserva las 9 categorías
+    finales y sus propios totales/órdenes únicas.
+    """
+    amt_col = money_col(d)
+    order_col = "Order Number" if "Order Number" in d.columns else "Id"
+    cat_order = category_order_for(d)
+    if "Channel" not in d.columns:
+        return {}
+    out = {}
+    for ch, sub in d.groupby(d["Channel"].fillna("").astype(str).str.strip()):
+        key = str(ch).strip()
+        if not key:
+            continue
+        out[key] = _aggregate_categories(sub, amt_col, order_col, cat_order)
+    return out
 
 
 def build_vista_b(d: pd.DataFrame) -> dict:
@@ -306,11 +421,15 @@ def build_vista_b(d: pd.DataFrame) -> dict:
             agg["Order Submitted Date"] = "first"
         if "Channel" in review.columns:
             agg["Channel"] = "first"
+        for extra in ("Club Title", "Club Package"):
+            if extra in review.columns:
+                agg[extra] = "first"
         review_records = review.groupby(order_col, as_index=False).agg(agg).rename(
             columns={order_col: "Order Number", amt_col: "SubTotal"}
         )
         review_records = review_records[
-            [c for c in ("Order Number", "Order Submitted Date", "Channel", "SubTotal") if c in review_records.columns]
+            [c for c in ("Order Number", "Order Submitted Date", "Channel",
+                         "Club Title", "Club Package", "SubTotal") if c in review_records.columns]
         ]
         review_records["SubTotal"] = review_records["SubTotal"].round(2)
         if "Order Submitted Date" in review_records.columns:
@@ -357,6 +476,14 @@ def build_geo(d: pd.DataFrame) -> dict:
     club_df["_zip"] = pick("Ship To Zip Code", "Bill To Zip Code")
     club_df["_state"] = club_df["_state"].where(club_df["_state"].isin(US_STATE_CODES), "")
 
+    # Algunos exports (p. ej. el dataset demo) no traen columnas de código postal:
+    # sin este dato el mapa se dibuja solo con estados, y hay que decírselo al
+    # lector en vez de dejar una leyenda de círculos que nunca aparecen.
+    has_zip_columns = any(c in club_df.columns for c in ("Ship To Zip Code", "Bill To Zip Code"))
+    if not has_zip_columns:
+        warn("El archivo de ventas no trae 'Ship To Zip Code' ni 'Bill To Zip Code': "
+             "el mapa se genera solo a nivel estado, sin el detalle por código postal.")
+
     by_state = club_df[club_df["_state"] != ""].groupby("_state").agg(
         orders=(order_col, "nunique"), subtotal=(amt_col, "sum"),
     ).reset_index().sort_values("subtotal", ascending=False)
@@ -366,6 +493,13 @@ def build_geo(d: pd.DataFrame) -> dict:
     ).reset_index().sort_values("subtotal", ascending=False).head(15)
 
     unresolved = int((club_df["_state"] == "").sum())
+    # Venta total de Club REAL (incluye los renglones sin estado identificable):
+    # el KPI del mapa antes sumaba solo los estados resueltos y subestimaba.
+    club_total = round(float(club_df[amt_col].sum()), 2)
+    unresolved_subtotal = round(float(club_df.loc[club_df["_state"] == "", amt_col].sum()), 2)
+    if unresolved:
+        warn(f"{unresolved} renglones de club sin estado de envío/facturación identificable "
+             f"(${unresolved_subtotal:,.2f}); se excluyen del mapa pero SÍ cuentan en la venta total de club.")
 
     zip_list = by_zip["_zip"].tolist()
     centroids = load_zip_centroids(zip_list)
@@ -389,31 +523,45 @@ def build_geo(d: pd.DataFrame) -> dict:
         "zip_points": zip_points,
         "unresolved_zips": unresolved_zips,
         "unresolved_rows": unresolved,
+        "unresolved_subtotal": unresolved_subtotal,
+        "has_zip_columns": bool(has_zip_columns),
+        "club_total": club_total,
+        "club_orders": int(club_df[order_col].nunique()),
+        "mapped_subtotal": round(float(by_state["subtotal"].sum()), 2),
     }
 
 
-def build_reconciliation(vista_a: dict, financial_report_path: str | None) -> dict:
+def build_reconciliation(vista_a: dict, financial_report_path: str | None,
+                         sales_basis: str) -> dict:
     total_dtc = vista_a["total_dtc"]
     net_sales_financial = None
+    financial_basis = None
     if financial_report_path:
         try:
             fin = load_data_file(financial_report_path)
-            for c in ("SubTotal", "Sub Total"):
-                if c in fin.columns:
-                    net_sales_financial = round(float(fin[c].sum()), 2)
-                    break
-        except Exception:
+            financial_basis = financial_money_col(fin)
+            if financial_basis is None:
+                warn(f"El reporte financiero no trae ninguna de {FINANCIAL_MONEY_COLS}; "
+                     "no se puede reconciliar.")
+            else:
+                net_sales_financial = round(float(coerce_money(fin[financial_basis]).sum()), 2)
+        except Exception as e:
+            warn(f"No se pudo leer el reporte financiero ({e}); se omite la reconciliación.")
             net_sales_financial = None
 
     ok = None
     if net_sales_financial is not None:
-        # Tolerancia al centavo (guía: cuadre al centavo, tolerancia cero).
-        ok = bool(np.isclose(total_dtc, net_sales_financial, atol=0.005))
+        # Cuadre EXACTO al centavo. np.isclose conserva rtol=1e-5 por defecto, que
+        # sobre $433k tolera ~$4.34 de diferencia — justo lo que la guía prohíbe.
+        ok = bool(round(total_dtc, 2) == round(net_sales_financial, 2))
 
     return {
         "total_dtc": total_dtc,
         "net_sales_financial": net_sales_financial,
         "match": ok,
+        "difference": round(total_dtc - net_sales_financial, 2) if net_sales_financial is not None else None,
+        "sales_basis": sales_basis,
+        "financial_basis": financial_basis,
     }
 
 
@@ -447,6 +595,29 @@ def _compute_state_centroids(paths: dict) -> dict:
     return centroids
 
 
+# Rampa de color del coropleto (Cabernet): 6 paradas para diferenciar claramente
+# estados con ventas bajas, medias y altas. Alineada con la leyenda del mapa.
+CABERNET_RAMP = [
+    (250, 243, 238),   # crema casi blanco
+    (224, 196, 182),   # tan muy claro
+    (188, 128, 110),   # terracota
+    (148, 76, 58),     # vino medio
+    (104, 38, 30),     # vino profundo
+    (64, 12, 18),      # cabernet oscuro
+]
+
+
+def _ramp_color(t: float, ramp: list) -> tuple:
+    """Interpola linealmente sobre una lista de paradas RGB con t en [0, 1]."""
+    t = max(0.0, min(1.0, t))
+    n = len(ramp) - 1
+    f = t * n
+    i = min(int(f), n - 1)
+    frac = f - i
+    c0, c1 = ramp[i], ramp[i + 1]
+    return tuple(int(round(c0[k] + (c1[k] - c0[k]) * frac)) for k in range(3))
+
+
 def render_svg_map_html(geo: dict) -> str:
     """Genera el SVG del mapa coroplético de EE.UU. pre-renderizado estáticamente con escala Cabernet."""
     geo_dict = json.loads(US_STATES_GEO_JSON)
@@ -466,13 +637,10 @@ def render_svg_map_html(geo: dict) -> str:
         sub = state_sub.get(code, 0.0)
         ords = state_ord.get(code, 0)
         if sub > 0:
-            # Escala no lineal (potencia 0.42) para que estados con ventas intermedias se diferencien claramente
-            t = min(1.0, max(0.0, (sub / max_sub) ** 0.42))
-            c0 = (235, 214, 206)  # Tint suave Cabernet
-            c1 = (84, 18, 26)     # Cabernet profundo Sullivan
-            r = int(c0[0] + (c1[0] - c0[0]) * t)
-            g = int(c0[1] + (c1[1] - c0[1]) * t)
-            b = int(c0[2] + (c1[2] - c0[2]) * t)
+            # Escala no lineal con rampa de 6 paradas: diferencia mejor los estados
+            # con ventas intermedias (ver CABERNET_RAMP arriba).
+            t = min(1.0, max(0.0, (sub / max_sub) ** 0.45))
+            r, g, b = _ramp_color(t, CABERNET_RAMP)
             fill = f"rgb({r},{g},{b})"
             stroke = "#003057"
             stroke_width = "1.2"
@@ -485,14 +653,14 @@ def render_svg_map_html(geo: dict) -> str:
         svg_parts.append(
             f'<path class="state-path" data-code="{code}" data-orders="{ords}" data-subtotal="{sub:.2f}" '
             f'd="{path_d}" fill="{fill}" stroke="{stroke}" stroke-width="{stroke_width}" stroke-linejoin="round">'
-            f'<title>{code}: {ords} órdenes, ${sub:,.0f}</title></path>'
+            f'<title>{code}: {ords} orders, ${sub:,.0f}</title></path>'
         )
 
     for code, (cx, cy) in centroids.items():
         sub = state_sub.get(code, 0.0)
         if sub > 0:
-            t = min(1.0, (sub / max_sub) ** 0.42)
-            lbl_color = "#FFFFFF" if t > 0.6 else "#451B0F"
+            t = min(1.0, (sub / max_sub) ** 0.45)
+            lbl_color = "#FFFFFF" if t > 0.55 else "#451B0F"
             svg_parts.append(
                 f'<text x="{cx}" y="{cy}" text-anchor="middle" font-size="9.5" font-weight="700" fill="{lbl_color}" pointer-events="none">{code}</text>'
             )
@@ -505,11 +673,15 @@ def render_svg_map_html(geo: dict) -> str:
         sub = p.get("subtotal", 0.0)
         x = p.get("x", 0)
         y = p.get("y", 0)
-        r = round(4.0 + (ords / max_zip_ords) * 11.0, 1)
+        # Radio mínimo mayor + halo blanco para que los puntos resalten sobre los estados.
+        r = round(5.0 + (ords / max_zip_ords) * 12.0, 1)
+        svg_parts.append(
+            f'<circle class="zip-halo" cx="{x}" cy="{y}" r="{r + 1.8:.1f}" fill="#FFFFFF" opacity="0.85" pointer-events="none"/>'
+        )
         svg_parts.append(
             f'<circle class="zip-circle" data-zip="{z}" data-orders="{ords}" data-subtotal="{sub:.2f}" '
-            f'cx="{x}" cy="{y}" r="{r}" fill="#C79F6C" stroke="#003057" stroke-width="1.5" opacity="0.94">'
-            f'<title>Código Postal (ZIP) {z}: {ords} órdenes, ${sub:,.0f}</title></circle>'
+            f'cx="{x}" cy="{y}" r="{r}" fill="#C79F6C" stroke="#54121A" stroke-width="2" opacity="1">'
+            f'<title>ZIP {z}: {ords} orders, ${sub:,.0f}</title></circle>'
         )
 
     svg_parts.append('</svg>')
@@ -542,15 +714,36 @@ def font_face_css() -> str:
     return "\n".join(faces)
 
 
+def _recolor_svg_to_white(raw: bytes) -> bytes:
+    """Convierte un SVG (negro/oscuro) a su versión blanca reemplazando rellenos y
+    trazos negros. Útil porque Sullivan-White.svg está vacío en el repo y el logo
+    blanco se puede derivar fielmente del Sullivan-Black.svg."""
+    text = raw.decode("utf-8", errors="ignore")
+    text = re.sub(r'fill="#(?:000000|000)"', 'fill="#FFFFFF"', text, flags=re.IGNORECASE)
+    text = re.sub(r'stroke="#(?:000000|000)"', 'stroke="#FFFFFF"', text, flags=re.IGNORECASE)
+    return text.encode("utf-8")
+
+
 def logo_white_data_uri() -> str:
+    # 1) SVG blanco con contenido dibujable real.
     if LOGO_WHITE_SVG.exists() and LOGO_WHITE_SVG.stat().st_size > 100:
-        b64 = base64.b64encode(LOGO_WHITE_SVG.read_bytes()).decode("ascii")
-        return f"data:image/svg+xml;base64,{b64}"
+        raw = LOGO_WHITE_SVG.read_bytes()
+        if re.search(rb"<path|<rect|<circle|<polygon|<line|<text", raw):
+            return f"data:image/svg+xml;base64,{base64.b64encode(raw).decode('ascii')}"
+    # 2) Recolorar el SVG negro a blanco en runtime (mejor nitidez que el PNG).
+    if LOGO_BLACK_SVG.exists() and LOGO_BLACK_SVG.stat().st_size > 100:
+        raw = LOGO_BLACK_SVG.read_bytes()
+        if re.search(rb"<path|<rect|<circle|<polygon|<line|<text", raw):
+            white = _recolor_svg_to_white(raw)
+            return f"data:image/svg+xml;base64,{base64.b64encode(white).decode('ascii')}"
+    # 3) PNG blanco como último respaldo.
+    if LOGO_WHITE_PNG.exists():
+        return f"data:image/png;base64,{base64.b64encode(LOGO_WHITE_PNG.read_bytes()).decode('ascii')}"
     return ""
 
 
 # ==============================================================================
-# 5. PLANTILLA HTML (2 pestañas, filtros, Chart.js vía CDN)
+# 5. PLANTILLA HTML (3 pestañas, filtros, Chart.js vía CDN)
 # ==============================================================================
 HTML_TEMPLATE = """<!doctype html>
 <html lang="en">
@@ -584,6 +777,9 @@ main {{ padding:28px 32px 60px; max-width:1180px; margin:0 auto; }}
 .kpi-card .value {{ font-size:26px; color:var(--brand-navy); font-weight:600; margin-top:4px; }}
 .kpi-card.ok .value {{ color:var(--brand-navy); }}
 .kpi-card.warn .value {{ color:var(--neg-value); }}
+.recon-note {{ font-size:11px; color:var(--brand-gray); margin-top:12px; letter-spacing:0.02em; }}
+.recon-note.ok {{ color:#1E4E2E; }}
+.recon-note.warn {{ color:var(--neg-value); font-weight:600; }}
 section.tabpanel {{ display:none; }}
 section.tabpanel.active {{ display:block; }}
 h2.section-title {{ color:var(--brand-navy); font-size:18px; letter-spacing:0.02em; border-bottom:2px solid var(--brand-tan); padding-bottom:6px; margin-top:36px; }}
@@ -666,7 +862,7 @@ table.data-table tr.total-row td {{ background:var(--highlight-cream); font-weig
   height: 11px;
   border-radius: 3px;
   border: 1px solid #003057;
-  background: linear-gradient(to right, #E8D3CB, #B9655D, #8C2F2F, #54121A);
+  background: linear-gradient(to right, #FAF3EE, #E0C4B6, #BC8070, #944C3A, #68261E, #400C12);
 }}
 .legend-bar-labels {{
   display: flex;
@@ -686,6 +882,106 @@ table.data-table tr.total-row td {{ background:var(--highlight-cream); font-weig
 .legend-zip-text strong {{
   color: var(--brand-navy);
 }}
+
+/* Encabezado de panel con herramientas (CSV / PNG / ampliar) */
+.panel-head {{
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-bottom: 2px solid var(--brand-tan);
+  margin-top: 36px;
+  padding-bottom: 6px;
+}}
+.panel-head h2.section-title {{
+  border-bottom: none;
+  margin: 0;
+  padding-bottom: 0;
+}}
+.panel-tools {{ display: flex; gap: 6px; flex-shrink: 0; }}
+.tool-btn {{
+  font-family: inherit;
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  color: var(--brand-navy);
+  background: #fff;
+  border: 1px solid var(--rule-line);
+  border-radius: 3px;
+  padding: 5px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}}
+.tool-btn:hover {{ background: var(--highlight-cream); border-color: var(--brand-tan); }}
+.filter-hint {{ font-size: 11px; color: var(--brand-gray); font-style: italic; margin-left: 10px; }}
+.filters {{ align-items: flex-end; }}
+
+/* Glosario de categorías */
+details.glossary {{
+  margin-top: 18px;
+  border: 1px solid var(--rule-line);
+  border-radius: 4px;
+  background: var(--highlight-cream);
+  padding: 10px 16px;
+}}
+details.glossary summary {{
+  cursor: pointer;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--brand-navy);
+  font-weight: 600;
+}}
+details.glossary dl {{ margin: 12px 0 4px; font-size: 13px; }}
+details.glossary dt {{
+  font-weight: 600;
+  color: var(--brand-navy);
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}}
+details.glossary dt .swatch {{ width: 11px; height: 11px; border-radius: 2px; display: inline-block; flex-shrink: 0; }}
+details.glossary dd {{ margin: 2px 0 0 18px; color: #333; line-height: 1.45; }}
+
+/* Modal de ampliar */
+.modal-overlay {{
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 24, 43, 0.72);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 28px;
+}}
+.modal-overlay.open {{ display: flex; }}
+.modal-box {{
+  background: #fff;
+  border-radius: 6px;
+  width: 100%;
+  max-width: 1400px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.35);
+}}
+.modal-head {{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  background: var(--brand-navy);
+  color: #fff;
+  border-radius: 6px 6px 0 0;
+}}
+.modal-head span {{ font-size: 15px; letter-spacing: 0.03em; }}
+.modal-head button {{
+  font-family: inherit; font-size: 18px; line-height: 1;
+  background: none; border: none; color: #fff; cursor: pointer; padding: 2px 6px;
+}}
+.modal-body {{ padding: 20px; overflow: auto; flex: 1; }}
+.modal-body svg {{ width: 100%; height: auto; max-height: 78vh; }}
 </style>
 </head>
 <body>
@@ -706,72 +1002,123 @@ table.data-table tr.total-row td {{ background:var(--highlight-cream); font-weig
 
 <main>
 
-<div class="filters">
-  <div>
-    <label>Channel</label>
-    <select id="filter-channel"><option value="all">All channels</option></select>
-  </div>
-</div>
-
 <section id="tab-a" class="tabpanel active">
+  <!-- El filtro vive DENTRO de esta pestaña: solo recalcula la Vista A. Como barra
+       global daba a entender que también filtraba Club Deep Dive y Geographic, que
+       son vistas exclusivas del canal Club. -->
+  <div class="filters">
+    <div>
+      <label for="filter-channel">Source channel</label>
+      <select id="filter-channel"><option value="all">All channels</option></select>
+    </div>
+    <span class="filter-hint">Applies to this tab only</span>
+  </div>
+
   <div class="kpi-row" id="kpi-row-a"></div>
-  <h2 class="section-title">Sales by Final Category (9 categories)</h2>
+  <div class="panel-head">
+    <h2 class="section-title" id="title-categories">Net Sales by Final Category</h2>
+    <div class="panel-tools">
+      <button class="tool-btn" onclick="exportTableCsv('table-categories','sullivan_categories.csv')">&#8681; CSV</button>
+      <button class="tool-btn" onclick="downloadChartPng('categories','sullivan_categories.png')">&#8681; PNG</button>
+      <button class="tool-btn" onclick="openChartModal('categories')">&#9974; Enlarge</button>
+    </div>
+  </div>
   <div class="chart-wrap"><canvas id="chart-categories" height="110"></canvas></div>
   <table class="data-table" id="table-categories"></table>
+  <p id="recon-note" class="recon-note"></p>
+  <p id="diagnostics-note" class="recon-note"></p>
+
+  <details class="glossary">
+    <summary>Methodology — what each category means</summary>
+    <p style="font-size:12.5px;color:var(--brand-gray);margin:10px 0 0;">
+      Every order line is evaluated once against an exclusive cascade of nine priorities,
+      top to bottom, so no revenue is counted twice. Amounts are item-level net sales
+      (before tax, shipping and tips).
+    </p>
+    <dl id="glossary-list"></dl>
+  </details>
 </section>
 
 <section id="tab-b" class="tabpanel">
   <div class="kpi-row" id="kpi-row-b"></div>
-  <h2 class="section-title">Estate vs Founder's — by Package</h2>
+  <div class="panel-head">
+    <h2 class="section-title">Estate vs Founder's — by Package</h2>
+    <div class="panel-tools">
+      <button class="tool-btn" onclick="exportTableCsv('table-packages','sullivan_club_packages.csv')">&#8681; CSV</button>
+      <button class="tool-btn" onclick="downloadChartPng('packages','sullivan_club_packages.png')">&#8681; PNG</button>
+      <button class="tool-btn" onclick="openChartModal('packages')">&#9974; Enlarge</button>
+    </div>
+  </div>
   <div class="chart-wrap"><canvas id="chart-packages" height="110"></canvas></div>
   <table class="data-table" id="table-packages"></table>
-  <h2 class="section-title">Review Cases (Admin/POS Marked as Club)</h2>
+
+  <div class="panel-head">
+    <h2 class="section-title">Review Cases (Admin/POS Marked as Club)</h2>
+    <div class="panel-tools">
+      <button class="tool-btn" onclick="exportTableCsv('table-review','sullivan_review_cases.csv')">&#8681; CSV</button>
+    </div>
+  </div>
+  <p style="font-size:12.5px;color:var(--brand-gray);margin:10px 0 0;">
+    Club-channel orders that name neither the Estate nor the Founder's program. They are
+    included in Total DTC so the reconciliation stays exact, and listed here because they
+    need a business decision before the next close.
+  </p>
   <table class="data-table" id="table-review"></table>
 
   <div style="margin-top:32px; background:var(--highlight-cream); border:1px solid var(--rule-line); border-radius:4px; padding:18px 22px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
     <div>
-      <h3 style="margin:0; color:var(--brand-navy); font-size:16px;">Distribución Geográfica de Envíos</h3>
-      <p style="margin:4px 0 0; font-size:13px; color:var(--brand-gray);">Explora el mapa interactivo de envíos por estado y concentración por código postal.</p>
+      <h3 style="margin:0; color:var(--brand-navy); font-size:16px;">Geographic Distribution of Club Shipments</h3>
+      <p style="margin:4px 0 0; font-size:13px; color:var(--brand-gray);">Explore the interactive map of shipments by state and concentration by ZIP code.</p>
     </div>
     <button onclick="showTab('tab-geo')" style="font-family:inherit; background:var(--brand-navy); color:#fff; border:none; padding:10px 20px; border-radius:3px; cursor:pointer; font-size:13px; letter-spacing:0.04em;">
-      Abrir Mapa Geográfico →
+      Open geographic map &#8594;
     </button>
   </div>
 </section>
 
 <section id="tab-geo" class="tabpanel">
   <div class="kpi-row" id="kpi-row-geo"></div>
-  <h2 class="section-title">Geographic Distribution — Club Shipments</h2>
-  <p style="font-size:13px;color:var(--brand-gray);margin-top:-6px;">
-    Análisis territorial de ventas de Club a nivel nacional. La intensidad del color en cada estado refleja la facturación neta, mientras que los círculos dorados marcan la ubicación precisa y volumen de los Códigos Postales (ZIPs) receptores.
+  <div class="panel-head">
+    <h2 class="section-title">Geographic Distribution — Club Shipments</h2>
+    <div class="panel-tools">
+      <button class="tool-btn" onclick="exportTableCsv('table-geo-states','sullivan_club_by_state.csv')">&#8681; CSV states</button>
+      <button class="tool-btn" onclick="exportTableCsv('table-geo-zip','sullivan_club_by_zip.csv')">&#8681; CSV ZIPs</button>
+      <button class="tool-btn" onclick="openMapModal()">&#9974; Enlarge map</button>
+    </div>
+  </div>
+  <p style="font-size:13px;color:var(--brand-gray);margin-top:10px;">
+    National view of Club sales. Colour intensity per state reflects net revenue; the gold
+    circles mark the exact location and volume of the receiving ZIP codes. Only Club shipments
+    are mapped — that is where the physical logistics live.
   </p>
 
-  <!-- LEYENDA DEL MAPA -->
+  <!-- MAP LEGEND -->
   <div class="map-legend">
     <div class="legend-item">
-      <div class="legend-card-title">Escala de Ventas por Estado (Coropleta)</div>
+      <div class="legend-card-title">Net Sales by State (Choropleth)</div>
       <div class="legend-scale-row">
-        <div class="legend-chip"><span class="chip-box" style="background:#EFECE6;border:1px solid #C8C2B8;"></span> Sin ventas ($0)</div>
-        <div class="legend-chip"><span class="chip-box" style="background:#E8D3CB;border:1px solid #003057;"></span> Ventas bajas</div>
+        <div class="legend-chip"><span class="chip-box" style="background:#EFECE6;border:1px solid #C8C2B8;"></span> No sales ($0)</div>
         <div class="legend-bar-container">
           <div class="legend-bar-gradient"></div>
           <div class="legend-bar-labels">
-            <span>Min ($500)</span>
-            <span>Medio (~$15k)</span>
-            <span>Max ($127k+)</span>
+            <span>Low</span>
+            <span>Medium</span>
+            <span>High</span>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="legend-item">
-      <div class="legend-card-title">Concentración por Código Postal (ZIP Code)</div>
+    <div class="legend-item" id="legend-zip-card">
+      <div class="legend-card-title">Concentration by ZIP Code</div>
       <div class="legend-zip-row">
         <svg width="24" height="24" viewBox="0 0 24 24" style="flex-shrink:0;">
-          <circle cx="12" cy="12" r="8" fill="#C79F6C" stroke="#003057" stroke-width="1.5" />
+          <circle cx="12" cy="12" r="9" fill="#FFFFFF" />
+          <circle cx="12" cy="12" r="6.5" fill="#C79F6C" stroke="#54121A" stroke-width="1.5" />
         </svg>
         <div class="legend-zip-text">
-          <strong>Círculos dorados (●):</strong> Representan la ubicación exacta de cada <strong>Código Postal (ZIP Code)</strong> de entrega. El tamaño del círculo es proporcional al <strong>número de órdenes</strong> enviadas a esa localidad.
+          <strong>Gold circles:</strong> the exact location of each delivery <strong>ZIP code</strong>.
+          Circle size is proportional to the <strong>number of orders</strong> shipped there.
         </div>
       </div>
     </div>
@@ -782,16 +1129,30 @@ table.data-table tr.total-row td {{ background:var(--highlight-cream); font-weig
     <div id="geo-tooltip"></div>
   </div>
   <table class="data-table" id="table-geo-states" style="margin-top:24px;"></table>
-  <h3 style="color:var(--brand-navy);font-size:15px;margin-top:28px;">Top 15 ZIP codes (Club)</h3>
-  <table class="data-table" id="table-geo-zip"></table>
+  <div id="zip-section">
+    <h3 style="color:var(--brand-navy);font-size:15px;margin-top:28px;">Top 15 ZIP codes (Club)</h3>
+    <table class="data-table" id="table-geo-zip"></table>
+  </div>
 </section>
 
 <div class="footer-note">
-  Generado automáticamente · {generated_at} · Sullivan Rutherford Estate — base de datos {data_note}.
-  Este dashboard es un archivo base para construir la skill; ajustar filtros y KPIs adicionales según se requiera.
+  Generated automatically &middot; {generated_at} &middot; Sullivan Rutherford Estate &mdash; {data_note} dataset.
+  Amounts are item-level net sales (before tax, shipping and tips) and reconcile to the cent
+  against the Financial Report.
 </div>
 
 </main>
+
+<!-- Modal de ampliar: se usa para las gráficas y para el mapa SVG -->
+<div id="modal-overlay" class="modal-overlay" onclick="closeModal(event)">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-head">
+      <span id="modal-title"></span>
+      <button type="button" onclick="closeModal()" title="Close (Esc)">&#10005;</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
 
 <script>
 {chart_js_inline}
@@ -844,79 +1205,286 @@ function renderTable(elId, headers, rows) {{
   el.innerHTML = thead + tbody;
 }}
 
+// ---------------------------------------------------------------------------
+// Utilidades de exportación (CSV / PNG) y modal de ampliar. El dashboard es un
+// archivo standalone abierto desde disco: las descargas se hacen con Blob +
+// <a download>, sin servidor.
+// ---------------------------------------------------------------------------
+var CHARTS = {{}};       // instancias vivas de Chart.js, por clave
+var CHART_SPECS = {{}};  // fábricas de config (una config fresca por modal)
+
+function downloadBlob(blob, filename) {{
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function() {{ URL.revokeObjectURL(url); }}, 1500);
+}}
+
+function exportTableCsv(tableId, filename) {{
+  var table = document.getElementById(tableId);
+  if (!table || !table.rows.length) {{ return; }}
+  var lines = [];
+  Array.prototype.forEach.call(table.rows, function(tr) {{
+    var cells = Array.prototype.map.call(tr.cells, function(td) {{
+      var v = (td.textContent || '').replace(/\\u00a0/g, ' ').trim();
+      return '"' + v.replace(/"/g, '""') + '"';
+    }});
+    if (cells.length) lines.push(cells.join(','));
+  }});
+  // BOM UTF-8: sin él, Excel en Windows abre el CSV en cp1252 y rompe acentos,
+  // apóstrofos tipográficos y el símbolo de moneda.
+  var blob = new Blob(['\\ufeff' + lines.join('\\r\\n')], {{ type: 'text/csv;charset=utf-8' }});
+  downloadBlob(blob, filename);
+}}
+
+function downloadChartPng(key, filename) {{
+  var chart = CHARTS[key];
+  if (!chart) {{ return; }}
+  // El canvas de Chart.js es transparente: se compone sobre blanco para que el
+  // PNG sea usable en presentaciones y correo.
+  var src = chart.canvas;
+  var out = document.createElement('canvas');
+  out.width = src.width;
+  out.height = src.height;
+  var ctx = out.getContext('2d');
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, out.width, out.height);
+  ctx.drawImage(src, 0, 0);
+  if (out.toBlob) {{
+    out.toBlob(function(b) {{ if (b) downloadBlob(b, filename); }});
+  }} else {{
+    var a = document.createElement('a');
+    a.href = out.toDataURL('image/png');
+    a.download = filename;
+    a.click();
+  }}
+}}
+
+var modalChart = null;
+
+function openModal(title, build) {{
+  var overlay = document.getElementById('modal-overlay');
+  var body = document.getElementById('modal-body');
+  if (!overlay || !body) return;
+  if (modalChart) {{ modalChart.destroy(); modalChart = null; }}
+  body.innerHTML = '';
+  document.getElementById('modal-title').textContent = title;
+  overlay.classList.add('open');
+  build(body);
+}}
+
+function closeModal(e) {{
+  if (e && e.target && e.target.id !== 'modal-overlay' && e.type === 'click') return;
+  var overlay = document.getElementById('modal-overlay');
+  if (!overlay) return;
+  overlay.classList.remove('open');
+  if (modalChart) {{ modalChart.destroy(); modalChart = null; }}
+  document.getElementById('modal-body').innerHTML = '';
+}}
+
+document.addEventListener('keydown', function(e) {{
+  if (e.key === 'Escape') closeModal();
+}});
+
+function openChartModal(key) {{
+  var spec = CHART_SPECS[key];
+  if (!spec || typeof Chart === 'undefined') return;
+  openModal(spec.title, function(body) {{
+    var wrap = document.createElement('div');
+    wrap.style.height = '72vh';
+    var cv = document.createElement('canvas');
+    wrap.appendChild(cv);
+    body.appendChild(wrap);
+    // Config fresca: Chart.js muta el objeto que recibe, así que reusarlo
+    // corrompería la gráfica de la página.
+    var cfg = spec.config();
+    cfg.options = cfg.options || {{}};
+    cfg.options.maintainAspectRatio = false;
+    modalChart = new Chart(cv, cfg);
+  }});
+}}
+
+function openMapModal() {{
+  var svg = document.getElementById('chart-geo-states');
+  if (!svg) return;
+  openModal('Club shipments — United States', function(body) {{
+    var clone = svg.cloneNode(true);
+    clone.removeAttribute('id');
+    clone.removeAttribute('style');
+    clone.setAttribute('style', 'width:100%;height:auto;display:block;');
+    body.appendChild(clone);
+  }});
+}}
+
 (function init() {{
   var d = window.REPORT_DATA;
 
-  // ---- Vista A ----
-  try {{
-    renderKpiRow('kpi-row-a', [
-      {{ label: 'Total DTC (SubTotal)', value: fmtMoney(d.vista_a.total_dtc) }},
-      {{ label: 'Net Sales (Financial Report)', value: d.reconciliation.net_sales_financial != null ? fmtMoney(d.reconciliation.net_sales_financial) : 'n/a' }},
-      {{ label: 'Reconciliation', value: d.reconciliation.match === true ? 'OK — matches' : (d.reconciliation.match === false ? 'DISCREPANCY' : 'n/a'),
-         cls: d.reconciliation.match === false ? 'warn' : 'ok' }},
-      {{ label: 'Total Orders', value: d.vista_a.orders.reduce(function(a,b){{return a+b;}},0).toLocaleString('en-US') }},
-    ]);
-  }} catch (e) {{ console.error('Error en KPI Vista A:', e); }}
+  var TOOLTIP_STYLE = {{
+    backgroundColor: 'rgba(0, 48, 87, 0.95)',
+    titleFont: {{ size: 14, weight: 'bold', family: "'EB Garamond', Georgia, serif" }},
+    bodyFont: {{ size: 13, family: "'EB Garamond', Georgia, serif" }},
+    padding: 12,
+    borderColor: '#A67C52',
+    borderWidth: 1.5
+  }};
 
-  try {{
-    renderTable('table-categories', ['Category', 'Orders', 'Sub Total', '% of Sales'],
-      d.vista_a.categories.map(function(cat, i) {{
-        return {{ cells: [
-          {{ v: cat }},
-          {{ v: d.vista_a.orders[i].toLocaleString('en-US'), num:true }},
-          {{ v: fmtMoney(d.vista_a.subtotal[i]), num:true }},
-          {{ v: d.vista_a.pct[i] + '%', num:true }},
-        ] }};
-      }}).concat([{{ cls:'total-row', cells: [
-          {{ v: 'TOTAL DTC' }}, {{ v: d.vista_a.orders.reduce(function(a,b){{return a+b;}},0), num:true }},
-          {{ v: fmtMoney(d.vista_a.total_dtc), num:true }}, {{ v: '100%', num:true }} ] }}])
-    );
-  }} catch (e) {{ console.error('Error en tabla de categorías:', e); }}
+  // ---- Vista A (filtro por canal, acotado a esta pestaña) ----
+  var currentVistaA = d.vista_a;
 
-  function tryRenderCategoriesChart() {{
+  function categoriesConfig(data) {{
+    return {{
+      type: 'bar',
+      data: {{
+        labels: data.categories,
+        datasets: [{{ label: 'Net Sales ($)', data: data.subtotal, backgroundColor: data.colors }}]
+      }},
+      options: {{
+        indexAxis: 'y',
+        responsive: true,
+        plugins: {{
+          legend: {{ display: false }},
+          tooltip: Object.assign({{}}, TOOLTIP_STYLE, {{
+            callbacks: {{
+              label: function(ctx) {{
+                var idx = ctx.dataIndex;
+                return [
+                  ' Net sales: ' + fmtMoney(ctx.raw) + ' (' + data.pct[idx] + '% of total)',
+                  ' Volume: ' + data.orders[idx].toLocaleString('en-US') + ' orders'
+                ];
+              }}
+            }}
+          }})
+        }},
+        scales: {{ x: {{ grid: {{ color: '{chart_grid}' }} }} }}
+      }}
+    }};
+  }}
+
+  function renderCategoriesChart(data) {{
     if (typeof Chart === 'undefined') {{
-      setTimeout(tryRenderCategoriesChart, 150);
+      setTimeout(function() {{ renderCategoriesChart(data); }}, 150);
       return;
     }}
     try {{
-      new Chart(document.getElementById('chart-categories'), {{
-        type: 'bar',
-        data: {{
-          labels: d.vista_a.categories,
-          datasets: [{{ label: 'Sub Total ($)', data: d.vista_a.subtotal, backgroundColor: d.vista_a.colors }}]
-        }},
-        options: {{
-          indexAxis: 'y',
-          responsive: true,
-          plugins: {{
-            legend: {{ display: false }},
-            tooltip: {{
-              backgroundColor: 'rgba(0, 48, 87, 0.95)',
-              titleFont: {{ size: 14, weight: 'bold', family: "'EB Garamond', Georgia, serif" }},
-              bodyFont: {{ size: 13, family: "'EB Garamond', Georgia, serif" }},
-              padding: 12,
-              borderColor: '#A67C52',
-              borderWidth: 1.5,
-              callbacks: {{
-                label: function(ctx) {{
-                  var idx = ctx.dataIndex;
-                  var val = fmtMoney(ctx.raw);
-                  var ords = d.vista_a.orders[idx].toLocaleString('en-US');
-                  var pct = d.vista_a.pct[idx];
-                  return [
-                    ' Venta Neta: ' + val + ' (' + pct + '% del Total)',
-                    ' Volumen: ' + ords + ' órdenes'
-                  ];
-                }}
-              }}
-            }}
-          }},
-          scales: {{ x: {{ grid: {{ color: '{chart_grid}' }} }} }}
-        }}
-      }});
-    }} catch (e) {{ console.error('Error al inicializar gráfica de categorías:', e); }}
+      if (CHARTS.categories) {{ CHARTS.categories.destroy(); CHARTS.categories = null; }}
+      CHARTS.categories = new Chart(document.getElementById('chart-categories'), categoriesConfig(data));
+    }} catch (e) {{ console.error('Error initialising the categories chart:', e); }}
   }}
-  tryRenderCategoriesChart();
+
+  CHART_SPECS.categories = {{
+    title: 'Net Sales by Final Category',
+    config: function() {{ return categoriesConfig(currentVistaA); }}
+  }};
+
+  function renderVistaA(data, channelKey) {{
+    var filtered = channelKey !== 'all';
+    currentVistaA = data;
+    renderKpiRow('kpi-row-a', [
+      {{ label: 'Total DTC (net sales)', value: fmtMoney(data.total_dtc) }},
+      // El Financial Report no viene desglosado por canal: mostrar el total
+      // completo junto a un DTC filtrado se leía como un descuadre.
+      {{ label: 'Net Sales (Financial Report)',
+         value: filtered ? 'n/a — filtered'
+                         : (d.reconciliation.net_sales_financial != null
+                            ? fmtMoney(d.reconciliation.net_sales_financial) : 'n/a') }},
+      {{ label: 'Total Orders', value: data.total_orders.toLocaleString('en-US') }},
+    ]);
+    renderTable('table-categories', ['Category', 'Orders', 'Net Sales', '% of Sales'],
+      data.categories.map(function(cat, i) {{
+        return {{ cells: [
+          {{ v: cat }},
+          {{ v: data.orders[i].toLocaleString('en-US'), num:true }},
+          {{ v: fmtMoney(data.subtotal[i]), num:true }},
+          {{ v: data.pct[i] + '%', num:true }},
+        ] }};
+      }}).concat([{{ cls:'total-row', cells: [
+          {{ v: 'TOTAL DTC' }}, {{ v: data.total_orders.toLocaleString('en-US'), num:true }},
+          {{ v: fmtMoney(data.total_dtc), num:true }}, {{ v: '100%', num:true }} ] }}])
+    );
+
+    var title = document.getElementById('title-categories');
+    if (title) {{
+      title.textContent = 'Net Sales by Final Category' + (filtered ? ' — ' + channelKey : '');
+    }}
+
+    var reconNote = document.getElementById('recon-note');
+    if (reconNote) {{
+      var r = d.reconciliation;
+      if (filtered) {{
+        reconNote.textContent = 'Channel filter active (' + channelKey + '). Reconciliation against the '
+          + 'Financial Report is only meaningful on "All channels"; switch back to verify the close.';
+        reconNote.className = 'recon-note';
+      }} else if (r.match === true) {{
+        reconNote.textContent = 'Reconciliation OK — Total DTC matches Net Sales to the cent ('
+          + fmtMoney(r.net_sales_financial) + '). Basis: OrderSales.' + r.sales_basis
+          + ' vs FinancialReport.' + r.financial_basis + '.';
+        reconNote.className = 'recon-note ok';
+      }} else if (r.match === false) {{
+        reconNote.textContent = 'Reconciliation DISCREPANCY — difference of '
+          + '$' + Number(r.difference).toLocaleString('en-US', {{minimumFractionDigits:2, maximumFractionDigits:2}})
+          + ' against Net Sales (' + fmtMoney(r.net_sales_financial) + '). Basis: OrderSales.'
+          + r.sales_basis + ' vs FinancialReport.' + r.financial_basis + '. Review the classification.';
+        reconNote.className = 'recon-note warn';
+      }} else {{
+        reconNote.textContent = 'Reconciliation not available — no financial report was provided.';
+        reconNote.className = 'recon-note';
+      }}
+    }}
+    renderCategoriesChart(data);
+  }}
+
+  // Nota de diagnóstico: renglones fuera de la cascada de 9 (no se ocultan nunca,
+  // porque el total DTC los incluye para poder cuadrar al centavo).
+  try {{
+    var diagNote = document.getElementById('diagnostics-note');
+    var dg = d.diagnostics || {{}};
+    if (diagNote && ((dg.unassigned_rows || 0) + (dg.review_rows || 0)) > 0) {{
+      var parts = [];
+      if (dg.unassigned_rows) {{
+        parts.push(dg.unassigned_rows.toLocaleString('en-US') + ' unclassified line(s) ('
+          + fmtMoney(dg.unassigned_subtotal) + ')');
+      }}
+      if (dg.review_rows) {{
+        parts.push(dg.review_rows.toLocaleString('en-US') + ' Club line(s) flagged for review ('
+          + fmtMoney(dg.review_subtotal) + ')');
+      }}
+      diagNote.textContent = 'Diagnostics: ' + parts.join(' · ')
+        + '. Included in Total DTC so the reconciliation stays exact — they are not part of the 9 categories.';
+      diagNote.className = 'recon-note warn';
+    }}
+  }} catch (e) {{ console.error('Error rendering diagnostics note:', e); }}
+
+  // Glosario de categorías
+  try {{
+    var gl = document.getElementById('glossary-list');
+    if (gl && d.glossary) {{
+      gl.innerHTML = d.glossary.map(function(item) {{
+        var color = (d.category_colors && d.category_colors[item.name]) || '#656565';
+        return '<dt><span class="swatch" style="background:' + color + '"></span>' + item.name + '</dt>'
+             + '<dd>' + item.desc + '</dd>';
+      }}).join('');
+    }}
+  }} catch (e) {{ console.error('Error rendering glossary:', e); }}
+
+  var channelSel = document.getElementById('filter-channel');
+  var channelKeys = Object.keys(d.vista_a_by_channel || {{}}).sort();
+  channelKeys.forEach(function(ch) {{
+    var opt = document.createElement('option');
+    opt.value = ch;
+    opt.textContent = ch;
+    channelSel.appendChild(opt);
+  }});
+  function applyChannelFilter() {{
+    var ch = channelSel.value;
+    var data = (ch === 'all') ? d.vista_a : (d.vista_a_by_channel[ch] || d.vista_a);
+    renderVistaA(data, ch);
+  }}
+  channelSel.addEventListener('change', applyChannelFilter);
+  try {{ applyChannelFilter(); }} catch (e) {{ console.error('Error rendering Vista A:', e); }}
 
   // ---- Vista B ----
   try {{
@@ -926,7 +1494,7 @@ function renderTable(elId, headers, rows) {{
       {{ label: 'Review Cases', value: d.vista_b.review_cases.length }},
     ]);
 
-    renderTable('table-packages', ['Package', 'Orders', 'Sub Total', 'Avg Order Value'],
+    renderTable('table-packages', ['Package', 'Orders', 'Net Sales', 'Avg Order Value'],
       d.vista_b.packages.map(function(p, i) {{
         return {{ cells: [
           {{ v: p }},
@@ -940,9 +1508,46 @@ function renderTable(elId, headers, rows) {{
     var reviewRows = d.vista_b.review_cases.map(function(r) {{
       return {{ cells: Object.keys(r).map(function(k) {{ return {{ v: r[k] }}; }}) }};
     }});
-    var reviewHeaders = d.vista_b.review_cases.length ? Object.keys(d.vista_b.review_cases[0]) : ['Order Number', 'Date', 'Channel', 'SubTotal'];
+    var reviewHeaders = d.vista_b.review_cases.length
+      ? Object.keys(d.vista_b.review_cases[0])
+      : ['Order Number', 'Order Submitted Date', 'Channel', 'Net Sales'];
     renderTable('table-review', reviewHeaders, reviewRows);
-  }} catch (e) {{ console.error('Error en Vista B tablas/kpis:', e); }}
+  }} catch (e) {{ console.error('Error rendering Vista B tables/KPIs:', e); }}
+
+  function packagesConfig(vb) {{
+    return {{
+      type: 'bar',
+      data: {{
+        labels: vb.packages,
+        datasets: [{{ label: 'Net Sales ($)', data: vb.subtotal, backgroundColor: vb.colors }}]
+      }},
+      options: {{
+        indexAxis: 'y',
+        responsive: true,
+        plugins: {{
+          legend: {{ display: false }},
+          tooltip: Object.assign({{}}, TOOLTIP_STYLE, {{
+            callbacks: {{
+              label: function(ctx) {{
+                var idx = ctx.dataIndex;
+                return [
+                  ' Net sales: ' + fmtMoney(ctx.raw),
+                  ' Volume: ' + vb.orders[idx].toLocaleString('en-US') + ' orders',
+                  ' Avg order value: ' + fmtMoney(vb.aov[idx])
+                ];
+              }}
+            }}
+          }})
+        }},
+        scales: {{ x: {{ grid: {{ color: '{chart_grid}' }} }} }}
+      }}
+    }};
+  }}
+
+  CHART_SPECS.packages = {{
+    title: "Club Net Sales by Package — Estate vs Founder's",
+    config: function() {{ return packagesConfig(d.vista_b); }}
+  }};
 
   function tryRenderPackagesChart() {{
     if (typeof Chart === 'undefined') {{
@@ -950,58 +1555,25 @@ function renderTable(elId, headers, rows) {{
       return;
     }}
     try {{
-      new Chart(document.getElementById('chart-packages'), {{
-        type: 'bar',
-        data: {{
-          labels: d.vista_b.packages,
-          datasets: [
-            {{ label: 'Sub Total ($)', data: d.vista_b.subtotal, backgroundColor: d.vista_b.colors, yAxisID: 'y' }},
-          ]
-        }},
-        options: {{
-          indexAxis: 'y',
-          responsive: true,
-          plugins: {{
-            legend: {{ display: false }},
-            tooltip: {{
-              backgroundColor: 'rgba(0, 48, 87, 0.95)',
-              titleFont: {{ size: 14, weight: 'bold', family: "'EB Garamond', Georgia, serif" }},
-              bodyFont: {{ size: 13, family: "'EB Garamond', Georgia, serif" }},
-              padding: 12,
-              borderColor: '#A67C52',
-              borderWidth: 1.5,
-              callbacks: {{
-                label: function(ctx) {{
-                  var idx = ctx.dataIndex;
-                  var val = fmtMoney(ctx.raw);
-                  var ords = d.vista_b.orders[idx].toLocaleString('en-US');
-                  var aov = fmtMoney(d.vista_b.aov[idx]);
-                  return [
-                    ' Venta Neta: ' + val,
-                    ' Volumen: ' + ords + ' órdenes',
-                    ' Ticket Promedio (AOV): ' + aov
-                  ];
-                }}
-              }}
-            }}
-          }},
-          scales: {{ x: {{ grid: {{ color: '{chart_grid}' }} }} }}
-        }}
-      }});
-    }} catch (e) {{ console.error('Error al inicializar gráfica de paquetes:', e); }}
+      if (CHARTS.packages) {{ CHARTS.packages.destroy(); CHARTS.packages = null; }}
+      CHARTS.packages = new Chart(document.getElementById('chart-packages'), packagesConfig(d.vista_b));
+    }} catch (e) {{ console.error('Error initialising the packages chart:', e); }}
   }}
   tryRenderPackagesChart();
 
-  // ---- Geografía (Club) ----
+  // ---- Geography (Club) ----
   try {{
     var geo = d.vista_b.geo;
     renderKpiRow('kpi-row-geo', [
-      {{ label: 'Estados con Envíos', value: geo.states.length }},
-      {{ label: 'Venta Total Club', value: fmtMoney(geo.state_subtotal.reduce(function(a,b){{return a+b;}},0)) }},
-      {{ label: 'Top Estado', value: (geo.states[0] || 'n/a') + ' (' + fmtMoney(geo.state_subtotal[0] || 0) + ')' }},
+      {{ label: 'States with shipments', value: geo.states.length }},
+      // Venta total de Club REAL: incluye los renglones sin estado resoluble, que
+      // se reportan aparte como nota. Antes este KPI sumaba solo lo mapeado y
+      // quedaba por debajo del total de club de la pestaña anterior.
+      {{ label: 'Total Club net sales', value: fmtMoney(geo.club_total) }},
+      {{ label: 'Top state', value: (geo.states[0] || 'n/a') + ' (' + fmtMoney(geo.state_subtotal[0] || 0) + ')' }},
     ]);
 
-    renderTable('table-geo-states', ['State', 'Orders', 'Sub Total'],
+    renderTable('table-geo-states', ['State', 'Orders', 'Net Sales'],
       geo.states.map(function(s, i) {{
         return {{ cells: [
           {{ v: s }},
@@ -1010,7 +1582,7 @@ function renderTable(elId, headers, rows) {{
         ] }};
       }})
     );
-    renderTable('table-geo-zip', ['ZIP', 'Orders', 'Sub Total'],
+    renderTable('table-geo-zip', ['ZIP', 'Orders', 'Net Sales'],
       geo.zips.map(function(z, i) {{
         return {{ cells: [
           {{ v: z }},
@@ -1019,31 +1591,63 @@ function renderTable(elId, headers, rows) {{
         ] }};
       }})
     );
+    // Sin datos de ZIP no tiene sentido mostrar la leyenda de los círculos ni la
+    // tabla vacía: se ocultan y se explica por qué (el dataset demo, por ejemplo,
+    // no incluye columnas de código postal).
+    if (!geo.zip_points || geo.zip_points.length === 0) {{
+      var zipCard = document.getElementById('legend-zip-card');
+      var zipSection = document.getElementById('zip-section');
+      var reason = geo.has_zip_columns
+        ? 'the source file has ZIP codes, but none could be matched to a Census centroid'
+        : 'the source file does not include ship-to / bill-to ZIP code columns';
+      if (zipCard) {{
+        zipCard.innerHTML = '<div class="legend-card-title">Concentration by ZIP Code</div>'
+          + '<div class="legend-zip-text" style="font-size:12px;color:#333;">Not available for this '
+          + 'period: ' + reason + '. The map is shown at state level only.</div>';
+      }}
+      if (zipSection) {{ zipSection.style.display = 'none'; }}
+    }}
+
+    var geoNotes = [];
     if (geo.unresolved_rows > 0) {{
+      geoNotes.push(geo.unresolved_rows.toLocaleString('en-US') + ' Club line(s) ('
+        + fmtMoney(geo.unresolved_subtotal) + ') have no resolvable ship-to / bill-to state '
+        + 'and are excluded from the map, but still counted in Total Club net sales.');
+    }}
+    if (geo.unresolved_zips && geo.unresolved_zips.length) {{
+      geoNotes.push('ZIP codes with no centroid in the Census gazetteer: ' + geo.unresolved_zips.join(', ') + '.');
+    }}
+    if (geoNotes.length) {{
       var statesTable = document.getElementById('table-geo-states');
       if (statesTable) {{
         statesTable.insertAdjacentHTML('afterend',
-          '<p style="font-size:11px;color:var(--brand-gray);margin-top:6px;">' +
-          geo.unresolved_rows + ' órdenes de club sin estado de envío/facturación identificable.</p>');
+          '<p style="font-size:11px;color:var(--brand-gray);margin-top:6px;line-height:1.5;">'
+          + geoNotes.join('<br>') + '</p>');
       }}
     }}
-  }} catch (e) {{ console.error('Error en tablas de geografía:', e); }}
+  }} catch (e) {{ console.error('Error rendering geography tables:', e); }}
 
   // ---- Interactividad de Pop-ups sobre el Mapa SVG Pre-renderizado ----
   try {{
     (function setupMapInteractivity() {{
       var tooltip = document.getElementById('geo-tooltip');
       if (!tooltip) return;
+      // El tooltip es position:absolute dentro de .chart-wrap (position:relative),
+      // así que las coordenadas deben ser relativas al contenedor, no al documento.
+      var wrap = tooltip.closest('.chart-wrap') || tooltip.parentElement;
 
+      function tipPos(e) {{
+        var rect = wrap.getBoundingClientRect();
+        tooltip.style.left = (e.clientX - rect.left + 14) + 'px';
+        tooltip.style.top = (e.clientY - rect.top + 14) + 'px';
+      }}
       function showTip(e, html) {{
         tooltip.innerHTML = html;
         tooltip.style.display = 'block';
-        tooltip.style.left = (e.pageX + 14) + 'px';
-        tooltip.style.top = (e.pageY + 14) + 'px';
+        tipPos(e);
       }}
       function moveTip(e) {{
-        tooltip.style.left = (e.pageX + 14) + 'px';
-        tooltip.style.top = (e.pageY + 14) + 'px';
+        tipPos(e);
       }}
       function hideTip() {{
         tooltip.style.display = 'none';
@@ -1055,10 +1659,10 @@ function renderTable(elId, headers, rows) {{
           var ords = Number(path.getAttribute('data-orders') || 0).toLocaleString('en-US');
           var sub = fmtMoney(path.getAttribute('data-subtotal') || 0);
           var hasSales = Number(path.getAttribute('data-subtotal') || 0) > 0;
-          showTip(e, '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#C79F6C;margin-bottom:2px;">🇺🇸 Estado de Destino</div>' +
-                     '<div style="font-weight:bold;font-size:15px;color:#FFFBEF;margin-bottom:4px;">' + code + (hasSales ? '' : ' <span style="font-size:11px;color:#bbb;font-weight:normal;">(Sin envíos)</span>') + '</div>' +
-                     '<div>Órdenes de Club: <strong>' + ords + '</strong></div>' +
-                     '<div>Facturación Neta: <strong>' + sub + '</strong></div>');
+          showTip(e, '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#C79F6C;margin-bottom:2px;">Destination state</div>' +
+                     '<div style="font-weight:bold;font-size:15px;color:#FFFBEF;margin-bottom:4px;">' + code + (hasSales ? '' : ' <span style="font-size:11px;color:#bbb;font-weight:normal;">(no shipments)</span>') + '</div>' +
+                     '<div>Club orders: <strong>' + ords + '</strong></div>' +
+                     '<div>Net sales: <strong>' + sub + '</strong></div>');
         }});
         path.addEventListener('mousemove', moveTip);
         path.addEventListener('mouseleave', hideTip);
@@ -1069,11 +1673,11 @@ function renderTable(elId, headers, rows) {{
           var z = circle.getAttribute('data-zip');
           var ords = Number(circle.getAttribute('data-orders') || 0).toLocaleString('en-US');
           var sub = fmtMoney(circle.getAttribute('data-subtotal') || 0);
-          showTip(e, '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#C79F6C;margin-bottom:2px;">📍 Código Postal (ZIP Code)</div>' +
+          showTip(e, '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#C79F6C;margin-bottom:2px;">ZIP code</div>' +
                      '<div style="font-weight:bold;font-size:15px;color:#FFFBEF;margin-bottom:4px;">ZIP ' + z + '</div>' +
-                     '<div>Órdenes de Club: <strong>' + ords + ' envíos</strong></div>' +
-                     '<div>Facturación Neta: <strong>' + sub + '</strong></div>' +
-                     '<div style="font-size:10px;color:#bbb;margin-top:4px;border-top:1px solid rgba(255,255,255,0.15);padding-top:2px;">Punto específico de entrega a socios de club</div>');
+                     '<div>Club orders: <strong>' + ords + ' shipments</strong></div>' +
+                     '<div>Net sales: <strong>' + sub + '</strong></div>' +
+                     '<div style="font-size:10px;color:#bbb;margin-top:4px;border-top:1px solid rgba(255,255,255,0.15);padding-top:2px;">Specific delivery point for club members</div>');
         }});
         circle.addEventListener('mousemove', moveTip);
         circle.addEventListener('mouseleave', hideTip);
@@ -1123,16 +1727,34 @@ def generate(order_sales_path: str, financial_report_path: str | None,
              output_path: str, title: str, period_label: str):
     df = load_data_file(order_sales_path)
     df = classify_orders(df)
+    amt_col = money_col(df)
+    df[amt_col] = coerce_money(df[amt_col])
+
+    diagnostics = {
+        "unassigned_rows": int((df["Final Category"] == "Unassigned").sum()),
+        "unassigned_subtotal": round(float(df.loc[df["Final Category"] == "Unassigned", amt_col].sum()), 2),
+        "review_rows": int((df["Final Category"] == "Club - Review (Admin/POS)").sum()),
+        "review_subtotal": round(float(df.loc[df["Final Category"] == "Club - Review (Admin/POS)", amt_col].sum()), 2),
+    }
+    if diagnostics["unassigned_rows"]:
+        warn(f"{diagnostics['unassigned_rows']} renglones quedaron sin clasificar "
+             f"(${diagnostics['unassigned_subtotal']:,.2f}). Se incluyen como 'Unassigned' para "
+             "que el total cuadre; revisa Channel / Club Title en el origen.")
 
     vista_a = build_vista_a(df)
     vista_b = build_vista_b(df)
     vista_b["geo"] = build_geo(df)
-    reconciliation = build_reconciliation(vista_a, financial_report_path)
+    reconciliation = build_reconciliation(vista_a, financial_report_path, amt_col)
 
     report_data = {
         "vista_a": vista_a,
+        "vista_a_by_channel": build_vista_a_by_channel(df),
         "vista_b": vista_b,
         "reconciliation": reconciliation,
+        "diagnostics": diagnostics,
+        "glossary": [{"name": n, "desc": t} for n, t in CATEGORY_GLOSSARY],
+        "category_colors": CATEGORY_COLORS,
+        "diagnostic_categories": list(DIAGNOSTIC_CATEGORIES),
         "meta": {"period_label": period_label, "generated_at": datetime.now().isoformat()},
     }
 
@@ -1146,7 +1768,7 @@ def generate(order_sales_path: str, financial_report_path: str | None,
         report_data_json=json.dumps(report_data),
         us_states_geo_json=US_STATES_GEO_JSON,
         generated_at=datetime.now().strftime("%b %d, %Y %H:%M"),
-        data_note="simulada" if "sim" in Path(order_sales_path).stem.lower() else "real/exportada",
+        data_note="simulated" if "sim" in Path(order_sales_path).stem.lower() else "real Commerce7 export",
         **TOKENS,
     )
 
@@ -1154,15 +1776,19 @@ def generate(order_sales_path: str, financial_report_path: str | None,
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html, encoding="utf-8")
     print(f"Dashboard generado: {out}")
-    print(f"  Total DTC: ${vista_a['total_dtc']:,.2f}")
-    print(f"  Reconciliación vs Financial Report: {reconciliation['match']}")
+    print(f"  Total DTC ({amt_col}): ${vista_a['total_dtc']:,.2f}")
+    if reconciliation["net_sales_financial"] is not None:
+        print(f"  Net Sales ({reconciliation['financial_basis']}): "
+              f"${reconciliation['net_sales_financial']:,.2f}  "
+              f"diferencia: ${reconciliation['difference']:,.2f}")
+    print(f"  Reconciliación al centavo: {reconciliation['match']}")
 
 
 def main():
     # Forzar UTF-8 en stdout/stderr (evita corrupción o UnicodeEncodeError en consolas Windows legacy).
     for _stream in (sys.stdout, sys.stderr):
         try:
-            _stream.reconfigure(encoding="utf-8")
+            _stream.reconfigure(encoding="utf-8", errors="replace")
         except (AttributeError, ValueError, OSError):
             pass
 
@@ -1173,7 +1799,12 @@ def main():
     ap.add_argument("--title", default="Sullivan Rutherford Estate — DTC Sales Dashboard")
     ap.add_argument("--period-label", default="April 2026")
     args = ap.parse_args()
-    generate(args.order_sales, args.financial_report, args.output, args.title, args.period_label)
+    # Rutas relativas se resuelven contra la raíz del proyecto (igual que en el
+    # orquestador), no contra el directorio desde el que se invocó el script.
+    out_path = Path(args.output)
+    if not out_path.is_absolute():
+        out_path = PROJECT_ROOT / out_path
+    generate(args.order_sales, args.financial_report, str(out_path), args.title, args.period_label)
 
 
 if __name__ == "__main__":
