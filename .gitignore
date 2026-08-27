@@ -6,6 +6,9 @@
 *.twb
 *.twbx
 *.zip
+*.pptx
+*.ppt
+
 # Carpetas a evitar
 Client_Documents/
 Client_Data/
