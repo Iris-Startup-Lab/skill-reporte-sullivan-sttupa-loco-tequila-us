@@ -301,6 +301,88 @@ def coerce_money(s: pd.Series) -> pd.Series:
     return out.where(~negative, -out.abs())
 
 
+# Marca visual para un dato ausente. Nunca debe imprimirse "nan", "NaT", "None"
+# ni "null": son artefactos de pandas/JSON, no información para el lector.
+BLANK = "—"
+
+_MISSING_TOKENS = {"nan", "nat", "none", "null", "undefined", "<na>", ""}
+
+
+def blank_if_missing(value, blank: str = BLANK) -> str:
+    """
+    Convierte un valor a texto listo para imprimir, sustituyendo cualquier forma
+    de "ausente" por `blank`. `str(np.nan)` da "nan" y `str(pd.NaT)` da "NaT":
+    hacer `.astype(str)` sobre una columna con huecos mete esas cadenas en la
+    tabla, que es exactamente lo que el lector no debe ver.
+    """
+    if value is None:
+        return blank
+    try:
+        if isinstance(value, float) and math.isnan(value):
+            return blank
+        if pd.isna(value):
+            return blank
+    except (TypeError, ValueError):
+        pass
+    text = str(value).strip()
+    return blank if text.lower() in _MISSING_TOKENS else text
+
+
+def clean_records(records: list, money_cols=(), date_cols=()) -> list:
+    """
+    Normaliza una lista de dicts para tabla: importes con formato de moneda,
+    fechas recortadas a la fecha (sin hora) y cualquier hueco como `BLANK`.
+    """
+    cleaned = []
+    for rec in records:
+        row = {}
+        for key, value in rec.items():
+            if key in money_cols:
+                try:
+                    if value is None or pd.isna(value):
+                        row[key] = BLANK
+                    else:
+                        row[key] = f"${float(value):,.2f}"
+                except (TypeError, ValueError):
+                    row[key] = blank_if_missing(value)
+            elif key in date_cols:
+                text = blank_if_missing(value)
+                row[key] = text[:10] if text != BLANK else BLANK
+            else:
+                row[key] = blank_if_missing(value)
+        cleaned.append(row)
+    return cleaned
+
+
+def sanitize_for_json(obj):
+    """
+    Reemplaza NaN / Infinity por None en toda la estructura antes de serializar.
+    `json.dumps` los emite por defecto como los literales `NaN` / `Infinity`, que
+    son JSON inválido pero JS válido: el dashboard los pintaba tal cual en las
+    celdas. Tras esta pasada se puede serializar con allow_nan=False, de modo que
+    si alguna vez se cuela un NaN el script falla en voz alta en vez de imprimir
+    "NaN" en un reporte para el cliente.
+    """
+    if isinstance(obj, dict):
+        return {k: sanitize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [sanitize_for_json(v) for v in obj]
+    if isinstance(obj, float):
+        return None if (math.isnan(obj) or math.isinf(obj)) else obj
+    if isinstance(obj, (np.floating, np.integer)):
+        value = obj.item()
+        if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
+            return None
+        return value
+    if obj is not None and not isinstance(obj, (str, int, bool)):
+        try:
+            if pd.isna(obj):
+                return None
+        except (TypeError, ValueError):
+            pass
+    return obj
+
+
 # Base económica canónica del reporte: venta neta a NIVEL ÍTEM, sin impuestos ni
 # flete. En el export de OrderSales esa columna es 'Product SubTotal'; 'SubTotal'
 # ahí es un total de ORDEN repetido en cada renglón de ítem (sumarlo duplica) y
@@ -414,6 +496,7 @@ def build_vista_b(d: pd.DataFrame) -> dict:
     # SubTotal agregado a nivel orden (antes salía una fila por línea de ítem).
     review = d[d["Final Category"] == "Club - Review (Admin/POS)"]
     review_records = []
+    review_total = 0.0
     if not review.empty:
         order_col = "Order Number" if "Order Number" in review.columns else "Id"
         agg = {amt_col: "sum"}
@@ -431,10 +514,18 @@ def build_vista_b(d: pd.DataFrame) -> dict:
             [c for c in ("Order Number", "Order Submitted Date", "Channel",
                          "Club Title", "Club Package", "SubTotal") if c in review_records.columns]
         ]
-        review_records["SubTotal"] = review_records["SubTotal"].round(2)
-        if "Order Submitted Date" in review_records.columns:
-            review_records["Order Submitted Date"] = review_records["Order Submitted Date"].astype(str)
-        review_records = review_records.to_dict(orient="records")
+        review_records = review_records.sort_values("SubTotal", ascending=False)
+        review_total = round(float(review_records["SubTotal"].sum()), 2)
+        review_records = review_records.rename(columns={"Order Submitted Date": "Date",
+                                                        "SubTotal": "Net Sales"})
+        # Un `.astype(str)` a secas convertía los huecos de Club Title / Club
+        # Package en las cadenas "nan" / "None" y así llegaban a la tabla del
+        # dashboard. clean_records las sustituye por BLANK y formatea moneda/fecha.
+        review_records = clean_records(
+            review_records.to_dict(orient="records"),
+            money_cols=("Net Sales",),
+            date_cols=("Date",),
+        )
 
     return {
         "packages": g["Club Package Group"].tolist(),
@@ -445,6 +536,7 @@ def build_vista_b(d: pd.DataFrame) -> dict:
         "estate_total": round(estate_total, 2),
         "founders_total": round(founders_total, 2),
         "review_cases": review_records,
+        "review_total": review_total,
     }
 
 
@@ -1174,7 +1266,29 @@ window.REPORT_DATA = {report_data_json};
 // ejecución: el dashboard funciona sin conexión a internet.
 var US_STATES_GEO = {us_states_geo_json};
 
-function fmtMoney(v) {{ return '$' + Number(v).toLocaleString('en-US', {{maximumFractionDigits:0}}); }}
+// Marca de dato ausente. Ninguna celda debe mostrar "nan"/"NaT"/"null": son
+// artefactos de pandas o de JSON, no información para el lector.
+var BLANK = '—';
+
+// Última barrera antes de pintar: convierte a texto y sustituye cualquier forma
+// de "ausente". Vale para todas las tablas, incluidas las que se agreguen luego.
+function cellText(v) {{
+  if (v === null || v === undefined) return BLANK;
+  if (typeof v === 'number' && !isFinite(v)) return BLANK;   // NaN e Infinity
+  var s = String(v).trim();
+  if (/^(nan|nat|none|null|undefined|<na>)$/i.test(s)) return BLANK;
+  return s === '' ? BLANK : s;
+}}
+
+function fmtMoney(v) {{
+  // Ojo: Number('') es 0, así que una celda vacía imprimiría "$0" — afirmar cero
+  // venta donde no hay dato es peor que dejarlo en blanco. Se descarta antes.
+  if (v === null || v === undefined) return BLANK;
+  if (typeof v === 'string' && v.trim() === '') return BLANK;
+  var n = Number(v);
+  if (!isFinite(n)) return BLANK;
+  return '$' + n.toLocaleString('en-US', {{maximumFractionDigits:0}});
+}}
 
 function showTab(id) {{
   document.querySelectorAll('.tabpanel').forEach(function(p) {{ p.classList.remove('active'); }});
@@ -1188,18 +1302,18 @@ function renderKpiRow(elId, cards) {{
   var el = document.getElementById(elId);
   if (!el) return;
   el.innerHTML = cards.map(function(c) {{
-    return '<div class="kpi-card ' + (c.cls || '') + '"><div class="label">' + c.label +
-           '</div><div class="value">' + c.value + '</div></div>';
+    return '<div class="kpi-card ' + (c.cls || '') + '"><div class="label">' + cellText(c.label) +
+           '</div><div class="value">' + cellText(c.value) + '</div></div>';
   }}).join('');
 }}
 
 function renderTable(elId, headers, rows) {{
   var el = document.getElementById(elId);
   if (!el) return;
-  var thead = '<thead><tr>' + headers.map(function(h) {{ return '<th>' + h + '</th>'; }}).join('') + '</tr></thead>';
+  var thead = '<thead><tr>' + headers.map(function(h) {{ return '<th>' + cellText(h) + '</th>'; }}).join('') + '</tr></thead>';
   var tbody = '<tbody>' + rows.map(function(r) {{
     return '<tr class="' + (r.cls || '') + '">' + r.cells.map(function(c) {{
-      return '<td class="' + (c.num ? 'num' : '') + '">' + c.v + '</td>';
+      return '<td class="' + (c.num ? 'num' : '') + '">' + cellText(c.v) + '</td>';
     }}).join('') + '</tr>';
   }}).join('') + '</tbody>';
   el.innerHTML = thead + tbody;
@@ -1765,7 +1879,10 @@ def generate(order_sales_path: str, financial_report_path: str | None,
         chart_js_inline=get_chart_js_inline(),
         svg_map_html=render_svg_map_html(vista_b["geo"]),
         logo_html=f'<img src="{logo_white_data_uri()}" alt="Sullivan Rutherford Estate" />' if logo_white_data_uri() else "",
-        report_data_json=json.dumps(report_data),
+        # allow_nan=False tras sanitizar: si alguna vez se cuela un NaN, el script
+        # falla en voz alta en vez de emitir el literal `NaN` (JSON inválido pero
+        # JS válido) que el dashboard pintaba tal cual en las celdas.
+        report_data_json=json.dumps(sanitize_for_json(report_data), allow_nan=False),
         us_states_geo_json=US_STATES_GEO_JSON,
         generated_at=datetime.now().strftime("%b %d, %Y %H:%M"),
         data_note="simulated" if "sim" in Path(order_sales_path).stem.lower() else "real Commerce7 export",

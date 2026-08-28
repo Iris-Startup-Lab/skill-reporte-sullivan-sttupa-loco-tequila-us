@@ -195,6 +195,84 @@ Aprovechamiento vertical medido instrumentando el canvas de ReportLab (caja úti
 **0 desbordes** con datos demo y reales (antes el ancho era 96 % en todas y varias páginas
 bajaban del 45 %).
 
+### H.4 Página "Review Cases" — se conserva, pero se corrigió su presentación ✅
+
+**¿Debe ir?** Sí. Son órdenes de canal Club que **no nombran ningún programa** y que están
+**dentro del Total DTC** (con datos reales: 3 órdenes / $2,798 / 0.65 % del DTC · con datos demo:
+5 órdenes / $4,682 / 1.01 %). Es venta real sin programa asignado: si la página no existe, nadie
+sabe que esas órdenes están ahí y el pendiente de §A no tiene sobre qué decidirse. Es además el
+soporte del punto 6 del checklist de la guía (*Club orders split Estate/Founder's*).
+
+Defectos corregidos:
+
+- **Hueco de ~250 pt entre la nota y la tabla:** la nota se dibujaba pegada arriba y la tabla se
+  centraba por separado. Ahora nota + tabla + total se maquetan como **un solo bloque**.
+- **`None` literal** en `Club Title` / `Club Package`: venía de `astype(str)` sobre los NaN. Se
+  normaliza a `—` (junto con `nan`, `NaT` y vacío).
+- **Importes sin formato** (`1087.57`) mientras el resto del PDF usa `$1,088`. Homologado con
+  `fmt_money` y alineado a la derecha.
+- **Timestamp completo** (`2026-04-15 01:54:54`) recortado a la fecha; la hora no aporta a una
+  decisión directiva. Columna renombrada a `Date`.
+- **Faltaba el dato que se necesita para decidir:** se agregó fila **TOTAL** y una nota
+  *"Action required"* con el importe y el **% del Total DTC**.
+- Filas ordenadas de mayor a menor importe.
+- **Bug encontrado al hacerlo:** el párrafo de acción (~180 caracteres) se truncaba con `...`
+  perdiendo justo la parte que pide la decisión. Se añadió `wrap_text()` (ajuste de línea real,
+  por palabras) para párrafos, en vez de recortar como se hace con las etiquetas de tabla.
+- Subtítulo actualizado a *"Club orders with no program assigned"*, coherente con la regla de
+  clasificación explícita de §C.
+- Si no hay casos, la página lo dice de forma afirmativa ("every Club order maps to the Estate or
+  Founder's program") en vez de dejar un hueco.
+
+### H.5 `nan` visible en las tablas (HTML y PDF) ✅
+
+Reproducido y corregido. Eran **dos mecanismos distintos**, uno por entregable:
+
+**HTML.** `json.dumps` emite por defecto los literales `NaN` / `Infinity` — JSON inválido pero
+**JS válido**, así que cualquier float NaN en `REPORT_DATA` llegaba a la celda y el navegador
+pintaba literalmente `NaN`. Además los `None` se serializaban como `null` y JS los concatenaba
+como la cadena `"null"`. Ahora:
+
+- `sanitize_for_json()` recorre la estructura y convierte NaN/Infinity (incluidos `np.float64`,
+  `np.float32` y `pd.NaT`) en `null` **antes** de serializar.
+- Se serializa con `allow_nan=False`: si en el futuro se cuela un NaN, el script **falla en voz
+  alta** en vez de publicar un reporte con `NaN` para el cliente.
+
+**PDF.** `review_cases` hacía `.astype(str)` sobre columnas con huecos, y `str(np.nan)` es `"nan"`
+mientras `str(pd.NaT)` es `"NaT"`: esas cadenas entraban tal cual a la tabla. Además `fmt_money`
+formateaba un NaN como `"$nan"`.
+
+**Corrección de raíz, no parche por tabla.** Se agregó `blank_if_missing()` en ambos generadores
+(y su gemelo `cellText()` en JS) y se aplicó en la **última barrera antes de dibujar**:
+
+| Punto | Protege |
+| :--- | :--- |
+| `draw_table()` → `cell()` (PDF) | todas las tablas, incluidas las que se agreguen después |
+| `draw_horizontal_bars()` (PDF) | etiquetas de las gráficas |
+| `fmt_money()` (PDF) | importes: un NaN devuelve `—`, no `$nan` |
+| `renderTable()` / `renderKpiRow()` (JS) | todas las tablas y KPIs del dashboard |
+| `fmtMoney()` (JS) | importes |
+| `clean_records()` (dashboard) | moneda con formato, fecha sin hora, huecos como `—` |
+
+Reconoce `nan`, `NaN`, `NaT`, `None`, `null`, `undefined`, `<NA>`, vacío y sólo-espacios, en
+cualquier combinación de mayúsculas. Los huecos se imprimen como **`—`**.
+
+**Brecha adicional encontrada al probar:** `fmtMoney("")` devolvía `"$0"`, porque `Number('')`
+es `0` en JS. Afirmar cero venta donde no hay dato es peor que dejarlo en blanco → se descarta
+la cadena vacía antes de convertir.
+
+**Verificación.** Se creó un dataset de estrés a partir del real, con huecos forzados
+(47 `Channel`, 290 `Club Title`, 287 `Club Package`, 8 fechas `NaT`, 46 importes nulos) en
+variantes `.xlsx` y `.csv`:
+
+- Escaneo de los 4 HTML y 4 PDF generados: **0 fugas**. El escáner busca los literales en
+  `REPORT_DATA`, valida que sea JSON parseable, revisa los registros de tabla y descomprime los
+  flujos de contenido del PDF para inspeccionar el texto realmente dibujado.
+- `blank_if_missing` / `cellText` / `fmt_money` / `fmtMoney` / `sanitize_for_json` probados contra
+  15 formas de valor ausente: **0 fallas**.
+- **Sin falsos positivos**: `Nancy`, `Nantucket`, `NATIONAL`, `0` y `—` pasan intactos (la
+  detección usa coincidencia exacta del token completo, no subcadena).
+
 ---
 
 ## G. Verificación ejecutada (2026-08-27)
@@ -212,7 +290,9 @@ bajaban del 45 %).
 | CSV export | BOM UTF-8 + CRLF + comillas escapadas, verificado |
 | Aprovechamiento de página del PDF (canvas instrumentado) | 0 desbordes; ancho 100 %; ver tabla en §H.3 |
 | Portabilidad Linux del ZIP (78 entradas) | 0 fallas: rutas POSIX, sin colisiones de capitalización, .sh con LF |
-| `bash -n package_skill.sh` + ejecución real | sintaxis OK; paquete de 7.44 MB con auto-verificación |
+| `bash -n package_skill.sh` + ejecución real | sintaxis OK; paquete con auto-verificación |
+| Fugas de `nan`/`None`/`NaT` en 4 HTML + 4 PDF (incluye dataset con huecos forzados) | 0 fugas |
+| Guardas de dato ausente (Python y JS) contra 15 formas de valor nulo | 0 fallas, 0 falsos positivos |
 
 ### Lo que no se pudo verificar automáticamente
 

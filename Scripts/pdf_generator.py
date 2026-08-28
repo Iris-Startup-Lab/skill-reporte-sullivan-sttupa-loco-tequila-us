@@ -36,6 +36,7 @@ Requiere: reportlab (pip install reportlab)
 """
 
 import argparse
+import math
 import re
 import sys
 from pathlib import Path
@@ -230,6 +231,27 @@ def fit_text(text, max_w, font, size):
     return text + "..."
 
 
+def wrap_text(text, max_w, font, size):
+    """
+    Parte un texto en líneas que caben en `max_w`. Para párrafos (no etiquetas de
+    tabla) recortar con '...' pierde el mensaje: aquí se necesita ajuste de línea
+    de verdad. Devuelve una lista de líneas.
+    """
+    words = str(text).split()
+    if not words:
+        return [""]
+    lines, current = [], words[0]
+    for word in words[1:]:
+        candidate = f"{current} {word}"
+        if pdfmetrics.stringWidth(candidate, font, size) <= max_w:
+            current = candidate
+        else:
+            lines.append(current)
+            current = word
+    lines.append(current)
+    return lines
+
+
 # ==============================================================================
 # 2. HELPERS DE DIBUJO (banda navy, tabla, gráfica de barras horizontales)
 # ==============================================================================
@@ -239,8 +261,41 @@ BOTTOM_LIMIT = 0.85 * inch           # nada de contenido por debajo de aquí
                                      # (la línea de pie va en 0.5 in)
 
 
+# Marca visual para un dato ausente. Nunca debe imprimirse "nan", "NaT", "None"
+# ni "null": son artefactos de pandas, no información para el lector.
+BLANK = "—"
+
+_MISSING_TOKENS = {"nan", "nat", "none", "null", "undefined", "<na>", ""}
+
+
+def blank_if_missing(value, blank: str = BLANK) -> str:
+    """
+    Convierte un valor a texto listo para imprimir, sustituyendo cualquier forma
+    de "ausente" por `blank`. `str(np.nan)` da "nan" y `str(pd.NaT)` da "NaT":
+    hacer `.astype(str)` sobre una columna con huecos mete esas cadenas en la
+    tabla, que es exactamente lo que el lector no debe ver.
+    """
+    if value is None:
+        return blank
+    try:
+        if isinstance(value, float) and math.isnan(value):
+            return blank
+        if pd.isna(value):
+            return blank
+    except (TypeError, ValueError):
+        pass
+    text = str(value).strip()
+    return blank if text.lower() in _MISSING_TOKENS else text
+
+
 def fmt_money(v):
-    return f"${v:,.0f}"
+    """Importe con formato. Un NaN/None devuelve BLANK, no '$nan'."""
+    try:
+        if v is None or pd.isna(v):
+            return BLANK
+        return f"${float(v):,.0f}"
+    except (TypeError, ValueError):
+        return BLANK
 
 
 def scale_widths(widths, total=None):
@@ -362,7 +417,8 @@ def draw_horizontal_bars(c, labels, values, color_map, x, y, width, row_h=16, ma
     for i, (lab, val) in enumerate(zip(labels, values)):
         row_y = y - i * row_h
         c.setFillColor(colors.black)
-        c.drawString(x, row_y - row_h + baseline, fit_text(lab, label_w - 8, FONT_REGULAR, font_size))
+        c.drawString(x, row_y - row_h + baseline,
+                     fit_text(blank_if_missing(lab), label_w - 8, FONT_REGULAR, font_size))
         bw = (val / max_value) * bar_area_w if max_value else 0
         c.setFillColor(color_map.get(lab, TAN))
         c.rect(x + label_w, row_y - row_h + (row_h - bar_h) / 2, max(bw, 1), bar_h, fill=1, stroke=0)
@@ -387,7 +443,9 @@ def draw_table(c, headers, rows, x, y, col_widths, row_h=16, total_row_idx=None,
     baseline = (row_h - font_size) / 2 + font_size * 0.24
 
     def cell(text, cx, cy, w, font, size, right):
-        txt = fit_text(text, w - 8, font, size)
+        # blank_if_missing es la última barrera antes de dibujar: aplica a TODAS
+        # las tablas del PDF, incluidas las que se agreguen después.
+        txt = fit_text(blank_if_missing(text), w - 8, font, size)
         if right:
             c.drawRightString(cx + w - 4, cy, txt)
         else:
@@ -660,36 +718,85 @@ def page_club_deep_dive(c, vista_b, page_num):
     c.showPage()
 
 
-def page_club_review_cases(c, vista_b, page_num):
-    draw_header_band(c, "Club Deep Dive", "Review cases — Admin/POS marked as Club", page_num)
-    y = PAGE_H - 1.2 * inch
+def page_club_review_cases(c, vista_b, total_dtc, page_num):
+    """
+    Órdenes de canal Club que no nombran ni el programa Estate ni el Founder's.
+    La página se conserva a propósito: es venta REAL incluida en el Total DTC pero
+    sin programa asignado, así que alguien tiene que decidir a dónde va. Sin esta
+    página nadie sabría que esas órdenes existen.
+
+    La nota, la tabla y el total se maquetan como UN SOLO bloque centrado. Antes
+    la nota quedaba pegada arriba y la tabla se centraba por separado, dejando un
+    hueco enorme entre ambas que se leía como un error de maquetación.
+    """
+    draw_header_band(c, "Club Deep Dive",
+                     "Review cases — Club orders with no program assigned", page_num)
+    top = PAGE_H - 1.2 * inch
     cases = vista_b["review_cases"]
+
+    if not cases:
+        c.setFont(FONT_REGULAR, 10.5)
+        c.setFillColor(GRAY)
+        c.drawString(MARGIN, top - 10,
+                     "No review cases detected in this period — every Club order maps to the "
+                     "Estate or Founder's program.")
+        c.showPage()
+        return
+
+    headers = list(cases[0].keys())
+    rows = [[str(v) for v in case.values()] for case in cases]
+    review_total = vista_b.get("review_total", 0.0)
+    share = (review_total / total_dtc * 100) if total_dtc else 0.0
+    rows.append(["TOTAL"] + [""] * (len(headers) - 2) + [fmt_money(review_total)])
+
+    # Anchos proporcionales al contenido real de cada columna (antes todas
+    # iguales: la de importes sobraba y la de fecha se quedaba corta).
+    weights = []
+    for i in range(len(headers)):
+        longest = max([len(str(headers[i]))] + [len(r[i]) for r in rows])
+        weights.append(max(6, min(26, longest)))
+    money_cols = {i for i, h in enumerate(headers) if h in ("Net Sales", "SubTotal")}
+
+    intro = ("Club-channel orders whose Club Title and Club Package name neither the Estate nor "
+             "the Founder's program.")
+    action = (f"These {len(cases)} orders total {fmt_money(review_total)} ({share:.2f}% of Total "
+              "DTC). They are counted in Total DTC so the reconciliation stays exact to the cent, "
+              "but still need a decision on which program they belong to.")
+
+    # Ambos párrafos se ajustan a línea (no se recortan): el de acción mide ~180
+    # caracteres y con fit_text se perdía justo la parte que pide la decisión.
+    intro_lines = wrap_text(intro, CONTENT_W, FONT_REGULAR, 8.5)
+    action_w = CONTENT_W - 1.05 * inch
+    action_lines = wrap_text(action, action_w, FONT_REGULAR, 8.5)
+
+    # Alto real del bloque completo (nota + tabla + bloque de acción) para poder
+    # centrarlo como una sola pieza.
+    reserve = 24 + len(action_lines) * 12 + len(intro_lines) * 12
+    row_h = auto_row_h(len(rows) + 1, top, 20, 30, reserve=reserve)
+    block_h = (len(intro_lines) * 12 + 4
+               + (len(rows) + 1) * row_h
+               + 18 + len(action_lines) * 12)
+    y = center_block(top, block_h)
+
     c.setFillColor(GRAY)
     c.setFont(FONT_REGULAR, 8.5)
-    c.drawString(MARGIN, y,
-                 "Club-channel orders that name neither the Estate nor the Founder's program. "
-                 "Included in Total DTC so the reconciliation stays exact.")
-    y -= 22
-    if not cases:
-        c.setFont(FONT_REGULAR, 10)
-        c.setFillColor(GRAY)
-        c.drawString(MARGIN, y - 10, "No review cases detected in this period.")
-    else:
-        headers = list(cases[0].keys())
-        rows = [[str(v) for v in case.values()] for case in cases]
-        # Anchos proporcionales al contenido real de cada columna (antes todas
-        # iguales: la de importes sobraba y la de fecha se quedaba corta).
-        weights = []
-        for i, h in enumerate(headers):
-            longest = max([len(str(h))] + [len(r[i]) for r in rows])
-            weights.append(max(6, min(28, longest)))
-        money_cols = {i for i, h in enumerate(headers) if h in ("SubTotal", "Net Sales")}
-        # Pocos casos de revisión es la situación normal y deseable: en vez de
-        # estirar 5 filas a toda la hoja, se centra el bloque.
-        row_h = auto_row_h(len(rows) + 1, y, 20, 30)
-        y = center_block(y, (len(rows) + 1) * row_h)
-        draw_table(c, headers, rows, MARGIN, y, scale_widths(weights),
-                   row_h=row_h, align_right=money_cols)
+    for line in intro_lines:
+        c.drawString(MARGIN, y, line)
+        y -= 12
+    y -= 4
+
+    y = draw_table(c, headers, rows, MARGIN, y, scale_widths(weights),
+                   row_h=row_h, total_row_idx=len(rows) - 1, align_right=money_cols)
+
+    y -= 18
+    c.setFillColor(NAVY)
+    c.setFont(FONT_BOLD, 8.5)
+    c.drawString(MARGIN, y, "Action required")
+    c.setFillColor(GRAY)
+    c.setFont(FONT_REGULAR, 8.5)
+    for line in action_lines:
+        c.drawString(MARGIN + 1.05 * inch, y, line)
+        y -= 12
     c.showPage()
 
 
@@ -782,6 +889,7 @@ def build_pdf(order_sales_path, financial_report_path, output_path, period_label
     # SubTotal agregado a nivel orden (antes salía una fila por línea de ítem).
     review = df[df["Final Category"] == "Club - Review (Admin/POS)"]
     review_cases = []
+    review_total = 0.0
     if not review.empty:
         order_col = "Order Number" if "Order Number" in review.columns else "Id"
         agg = {amt_col: "sum"}
@@ -799,14 +907,29 @@ def build_pdf(order_sales_path, financial_report_path, output_path, period_label
             [c for c in ("Order Number", "Order Submitted Date", "Channel",
                          "Club Title", "Club Package", "SubTotal") if c in review_cases.columns]
         ]
-        review_cases["SubTotal"] = review_cases["SubTotal"].round(2)
-        review_cases = review_cases.astype(str).to_dict(orient="records")
+        review_cases = review_cases.sort_values("SubTotal", ascending=False)
+        review_total = round(float(review_cases["SubTotal"].sum()), 2)
+        # Formato listo para imprimir: sin `astype(str)` a secas, que convertía los
+        # NaN de Club Title / Club Package en la cadena literal "None", y con los
+        # importes en la misma notación de moneda que el resto del reporte.
+        review_cases["SubTotal"] = review_cases["SubTotal"].map(lambda v: fmt_money(round(v, 2)))
+        if "Order Submitted Date" in review_cases.columns:
+            # Solo la fecha: la hora exacta no aporta a una decisión directiva.
+            review_cases["Order Submitted Date"] = (
+                review_cases["Order Submitted Date"].astype(str).str.slice(0, 10)
+            )
+        review_cases = review_cases.rename(columns={"Order Submitted Date": "Date",
+                                                    "SubTotal": "Net Sales"})
+        for col in review_cases.columns:
+            review_cases[col] = review_cases[col].map(blank_if_missing)
+        review_cases = review_cases.to_dict(orient="records")
     vista_b = {
         "packages": gp["Club Package Group"].tolist(), "orders": gp["orders"].astype(int).tolist(),
         "subtotal": gp["subtotal"].round(2).tolist(), "aov": gp["aov"].tolist(),
         "estate_total": round(float(club_df[club_df["Final Category"] == "Estate Club"][amt_col].sum()), 2),
         "founders_total": round(float(club_df[club_df["Final Category"] == "Founder's Club"][amt_col].sum()), 2),
         "review_cases": review_cases,
+        "review_total": review_total,
     }
 
     net_sales_financial = None
@@ -846,7 +969,7 @@ def build_pdf(order_sales_path, financial_report_path, output_path, period_label
     page_category_detail(c, vista_a, page); page += 1
     page_financial_reconciliation(c, vista_a, reconciliation, diagnostics, page); page += 1
     page_club_deep_dive(c, vista_b, page); page += 1
-    page_club_review_cases(c, vista_b, page); page += 1
+    page_club_review_cases(c, vista_b, total_dtc, page); page += 1
     data_note = "simulated data (sullivan_c7_simulator.py)" if "sim" in Path(order_sales_path).stem.lower() else "real Commerce7 export"
     page_appendix(c, page, data_note)
 
