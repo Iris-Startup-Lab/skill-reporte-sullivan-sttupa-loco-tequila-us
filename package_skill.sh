@@ -62,6 +62,7 @@ if [[ -n "$PY_BIN" ]]; then
 
     "$PY_BIN" - "$OUTPUT_ZIP" <<'EOF'
 import os
+import re
 import sys
 import zipfile
 
@@ -80,6 +81,10 @@ if out_dir:
 exclude_dirs = {
     "Client_Data",
     "Client_Documents",
+    # Client_Reports guarda los requerimientos y blueprints que el cliente nos
+    # entregó (.docx, .pptx, maquetas .html). Son confidenciales del cliente y no
+    # deben viajar en el paquete distribuible — .gitignore ya los excluye del repo.
+    "Client_Reports",
     ".agents",
     "Examples",
     "Output",
@@ -141,6 +146,19 @@ with zipfile.ZipFile(output_zip) as check:
                  if "\\" in n or n.startswith("/") or ".." in n.split("/")]
     if offenders:
         raise SystemExit("ERROR: entradas no portables: " + ", ".join(offenders[:5]))
+
+    # El instalador de skills rechaza el paquete COMPLETO ("Zip file contains
+    # path with invalid characters") si alguna ruta trae algo fuera de
+    # [A-Za-z0-9._/-]: un espacio, un apóstrofo, una coma o un corchete basta.
+    # Los nombres que entrega el cliente los traen; los archivos demo que SÍ
+    # viajan aquí van con guiones y los lectores hacen match tolerante a la
+    # puntuación (ver _flexible_pattern en loco_tequila_us_relationships.py).
+    invalid = [n for n in entries if not re.fullmatch(r"[A-Za-z0-9._/-]+", n)]
+    if invalid:
+        raise SystemExit(
+            "ERROR: el instalador rechaza estas rutas por sus caracteres "
+            "(solo se admite A-Z a-z 0-9 . _ - /): " + ", ".join(invalid[:5]))
+
     lowered = {}
     for n in entries:
         lowered.setdefault(n.lower(), []).append(n)
@@ -162,6 +180,7 @@ elif command -v zip &>/dev/null; then
     zip -r -q "$FINAL_ZIP" . \
         -x "Client_Data/*" \
         -x "Client_Documents/*" \
+        -x "Client_Reports/*" \
         -x ".agents/*" \
         -x "Examples/*" \
         -x "Output/*" \

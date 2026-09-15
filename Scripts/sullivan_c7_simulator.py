@@ -44,6 +44,7 @@ campo real de tags en el futuro.
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
+from pathlib import Path
 
 # ==============================================================================
 # 0. CONFIGURACIÓN — ajustar aquí para simular otros meses / volúmenes
@@ -55,6 +56,7 @@ CONFIG = {
     "n_orders_base": 430,       # abril real = 430 órdenes; escala con growth_trend
     "growth_trend_pct": 0.0,    # +5.0 = crecer 5% vs línea base (para simular meses futuros)
     "output_prefix": "Apr",     # prefijo de archivo (cambiar por mes, ej. "May")
+    "output_dir": ".",          # carpeta destino ("." = directorio actual, como en Colab)
 }
 
 rng = np.random.default_rng(CONFIG["seed"])
@@ -455,9 +457,11 @@ def run(cfg=CONFIG):
         f"{prefix}_SalesbyClub.xlsx": by_club,
         f"{prefix}_SalesbyTag.xlsx": by_tag,
     }
+    out_dir = Path(cfg.get("output_dir", "."))
+    out_dir.mkdir(parents=True, exist_ok=True)
     for fname, df in files.items():
-        df.to_excel(fname, index=False)
-        print(f"Generado: {fname}  ({len(df)} filas)")
+        df.to_excel(out_dir / fname, index=False)
+        print(f"Generado: {out_dir / fname}  ({len(df)} filas)")
 
     # Descarga automática si corre en Google Colab
     try:

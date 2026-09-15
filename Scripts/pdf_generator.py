@@ -49,34 +49,76 @@ from reportlab.lib.units import inch
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
+
+# Ejecutable tanto como script (`python Scripts/pdf_generator.py`) como
+# importado desde el orquestador, sin depender del directorio de trabajo.
+_HERE = Path(__file__).resolve().parent
+if str(_HERE) not in sys.path:
+    sys.path.insert(0, str(_HERE))
+
+import pdf_common  # noqa: E402
 
 # ==============================================================================
 # 0. RUTAS DE MARCA Y TOKENS (idénticos a Design_sullivan.md)
 # ==============================================================================
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-FONT_DIR = PROJECT_ROOT / "Fonts" / "Font_sullivan" / "EB_Garamond" / "static"
 
-NAVY = colors.HexColor("#003057")
-GRAY = colors.HexColor("#656565")
-TAN = colors.HexColor("#A67C52")
-CREAM = colors.HexColor("#FFFBEF")
-RULE_LINE = colors.HexColor("#D9D9D9")
-NEG = colors.HexColor("#8C2F2F")
-PAGE_W, PAGE_H = letter
+# Toda la capa de dibujo y la maquetación adaptativa viven en pdf_common:
+# los cuatro reportes en PDF la comparten, así que una corrección de layout
+# se aplica una vez y no cuatro. Ver el encabezado de ese módulo.
+from pdf_common import (  # noqa: E402
+    ACCENT as TAN,
+    BLANK,
+    BOTTOM_LIMIT,
+    CONTENT_W,
+    MARGIN,
+    MUTED as GRAY,
+    NEGATIVE as NEG,
+    PAGE_H,
+    PAGE_W,
+    PRIMARY as NAVY,
+    RULE as RULE_LINE,
+    SOFT as CREAM,
+    SULLIVAN_THEME,
+    auto_row_h,
+    blank_if_missing,
+    center_block,
+    draw_header_band,
+    draw_horizontal_bars,
+    draw_kpi_cards,
+    draw_section_title,
+    draw_table,
+    fit_text,
+    fmt_money,
+    scale_widths,
+    use_theme,
+    wrap_text,
+)
+
+use_theme(SULLIVAN_THEME)
+FONT_REGULAR, FONT_BOLD = pdf_common.FONT_REGULAR, pdf_common.FONT_BOLD
+
+# Destino único de todo renglón que la cascada no puede clasificar (decisión de
+# negocio del cliente, 2026-09-02): una orden de canal Club que no nombra ni el
+# programa Estate ni el Founder's, y cualquier renglón de canal desconocido, van
+# a UNA sola categoría visible "No clasificados". El motivo concreto se conserva
+# en la columna 'Unclassified Reason' para la tabla de auditoría.
+UNCLASSIFIED = "Unclassified"
+REASON_CLUB_NO_PROGRAM = "Club channel, no program named"
+REASON_UNKNOWN_CHANNEL = "Channel not recognized by the cascade"
 
 CATEGORY_COLORS = {
     "Telesales": colors.HexColor("#003057"), "Event": colors.HexColor("#2C4F73"),
     "Corporate": colors.HexColor("#55698C"), "Friends & Family": colors.HexColor("#7E85A5"),
     "Tock": colors.HexColor("#A7A1BE"), "Web / Ecommerce": colors.HexColor("#A67C52"),
     "Tasting Room": colors.HexColor("#C79F6C"), "Estate Club": colors.HexColor("#8C2F2F"),
-    "Founder's Club": colors.HexColor("#451B0F"), "Club - Review (Admin/POS)": colors.HexColor("#656565"),
+    "Founder's Club": colors.HexColor("#451B0F"), UNCLASSIFIED: colors.HexColor("#656565"),
 }
 CATEGORY_ORDER = list(CATEGORY_COLORS.keys())
 
-# Filas que NO forman parte de la cascada de 9 prioridades: existen solo para que
-# el total cuadre al centavo y para que nada quede fuera del reporte en silencio.
-DIAGNOSTIC_CATEGORIES = ("Club - Review (Admin/POS)", "Unassigned")
+# Fila que NO forma parte de la cascada de 9 prioridades: existe para que el
+# total cuadre al centavo y para que nada quede fuera del reporte en silencio.
+DIAGNOSTIC_CATEGORIES = (UNCLASSIFIED,)
 
 # Glosario de las 9 categorías finales — un lector directivo no tiene por qué
 # adivinar qué distingue "Telesales" de "Tock". Se imprime en el PDF y se
@@ -91,6 +133,9 @@ CATEGORY_GLOSSARY = [
     ("Tasting Room", "Any POS order rung up on site at the estate."),
     ("Estate Club", "Club shipment on an Estate program (4 or 6 bottle)."),
     ("Founder's Club", "Club shipment on a Founder's program (3 bottle to double case)."),
+    (UNCLASSIFIED,
+     "Diagnostic, not a 10th category: everything the cascade cannot assign — Club lines "
+     "naming neither program, plus lines with an unrecognized channel."),
 ]
 
 CLUB_PACKAGE_COLORS = {
@@ -99,13 +144,6 @@ CLUB_PACKAGE_COLORS = {
     "Founder's Single Case": colors.HexColor("#8C4A2E"), "Founder's Double Case": colors.HexColor("#A6673F"),
 }
 
-FONT_REGULAR, FONT_BOLD = "Helvetica", "Helvetica-Bold"  # fallback
-try:
-    pdfmetrics.registerFont(TTFont("EBGaramond", str(FONT_DIR / "EBGaramond-Regular.ttf")))
-    pdfmetrics.registerFont(TTFont("EBGaramond-Bold", str(FONT_DIR / "EBGaramond-Bold.ttf")))
-    FONT_REGULAR, FONT_BOLD = "EBGaramond", "EBGaramond-Bold"
-except Exception:
-    pass  # cae a Helvetica si no están los .ttf en esta máquina
 
 
 # ==============================================================================
@@ -138,14 +176,22 @@ def classify_orders(df: pd.DataFrame) -> pd.DataFrame:
     club_name = (club_title + " " + club_package)
     cond_estate = is_club & club_name.str.contains("Estate", case=False, regex=False)
     cond_founders = is_club & ~cond_estate & club_name.str.contains("Founder", case=False, regex=False)
-    cond_club_review = is_club & ~cond_estate & ~cond_founders
+    cond_club_unclassified = is_club & ~cond_estate & ~cond_founders
 
     conditions = [cond_event, cond_corp, cond_ff, cond_tele, cond_tock, cond_web,
-                  cond_pos, cond_estate, cond_founders, cond_club_review]
+                  cond_pos, cond_estate, cond_founders, cond_club_unclassified]
     choices = ["Event", "Corporate", "Friends & Family", "Telesales", "Tock",
                "Web / Ecommerce", "Tasting Room", "Estate Club", "Founder's Club",
-               "Club - Review (Admin/POS)"]
-    d["Final Category"] = np.select(conditions, choices, default="Unassigned")
+               UNCLASSIFIED]
+    d["Final Category"] = np.select(conditions, choices, default=UNCLASSIFIED)
+
+    # El motivo se guarda aparte: la categoría es una sola ("No clasificados"),
+    # pero la tabla de auditoría necesita distinguir por qué cayó cada renglón.
+    d["Unclassified Reason"] = np.select(
+        [cond_club_unclassified, d["Final Category"] == UNCLASSIFIED],
+        [REASON_CLUB_NO_PROGRAM, REASON_UNKNOWN_CHANNEL],
+        default="",
+    )
 
     def package_group(pkg):
         p = pkg.lower()
@@ -217,274 +263,6 @@ def financial_money_col(fin):
     return None
 
 
-def fit_text(text, max_w, font, size):
-    """
-    Recorta un texto a `max_w` puntos agregando '...'. drawString no hace wrap:
-    sin esto, un nombre de categoría o paquete largo se desborda encima de la
-    columna siguiente.
-    """
-    text = str(text)
-    if pdfmetrics.stringWidth(text, font, size) <= max_w:
-        return text
-    while text and pdfmetrics.stringWidth(text + "...", font, size) > max_w:
-        text = text[:-1]
-    return text + "..."
-
-
-def wrap_text(text, max_w, font, size):
-    """
-    Parte un texto en líneas que caben en `max_w`. Para párrafos (no etiquetas de
-    tabla) recortar con '...' pierde el mensaje: aquí se necesita ajuste de línea
-    de verdad. Devuelve una lista de líneas.
-    """
-    words = str(text).split()
-    if not words:
-        return [""]
-    lines, current = [], words[0]
-    for word in words[1:]:
-        candidate = f"{current} {word}"
-        if pdfmetrics.stringWidth(candidate, font, size) <= max_w:
-            current = candidate
-        else:
-            lines.append(current)
-            current = word
-    lines.append(current)
-    return lines
-
-
-# ==============================================================================
-# 2. HELPERS DE DIBUJO (banda navy, tabla, gráfica de barras horizontales)
-# ==============================================================================
-MARGIN = 0.6 * inch
-CONTENT_W = PAGE_W - 2 * MARGIN      # 7.3 in — ancho útil entre márgenes
-BOTTOM_LIMIT = 0.85 * inch           # nada de contenido por debajo de aquí
-                                     # (la línea de pie va en 0.5 in)
-
-
-# Marca visual para un dato ausente. Nunca debe imprimirse "nan", "NaT", "None"
-# ni "null": son artefactos de pandas, no información para el lector.
-BLANK = "—"
-
-_MISSING_TOKENS = {"nan", "nat", "none", "null", "undefined", "<na>", ""}
-
-
-def blank_if_missing(value, blank: str = BLANK) -> str:
-    """
-    Convierte un valor a texto listo para imprimir, sustituyendo cualquier forma
-    de "ausente" por `blank`. `str(np.nan)` da "nan" y `str(pd.NaT)` da "NaT":
-    hacer `.astype(str)` sobre una columna con huecos mete esas cadenas en la
-    tabla, que es exactamente lo que el lector no debe ver.
-    """
-    if value is None:
-        return blank
-    try:
-        if isinstance(value, float) and math.isnan(value):
-            return blank
-        if pd.isna(value):
-            return blank
-    except (TypeError, ValueError):
-        pass
-    text = str(value).strip()
-    return blank if text.lower() in _MISSING_TOKENS else text
-
-
-def fmt_money(v):
-    """Importe con formato. Un NaN/None devuelve BLANK, no '$nan'."""
-    try:
-        if v is None or pd.isna(v):
-            return BLANK
-        return f"${float(v):,.0f}"
-    except (TypeError, ValueError):
-        return BLANK
-
-
-def scale_widths(widths, total=None):
-    """
-    Escala un juego de anchos de columna para ocupar TODO el ancho útil. Las
-    tablas se definían con anchos fijos que sumaban ~7.0 in contra 7.3 in
-    disponibles: quedaban angostas y se leían "chicas" respecto al margen.
-    """
-    total = CONTENT_W if total is None else total
-    s = float(sum(widths))
-    if s <= 0:
-        return list(widths)
-    return [w * total / s for w in widths]
-
-
-def auto_row_h(n_rows, top_y, min_h, max_h, reserve=0.0):
-    """
-    Reparte el espacio vertical disponible entre `n_rows`, acotado a
-    [min_h, max_h]. Antes todo usaba alturas fijas (row_h=18/20/22), así que una
-    tabla de 6 filas ocupaba 1/4 de la hoja y dejaba media página en blanco.
-    `reserve` es el espacio que hay que dejar libre debajo para lo que siga
-    (notas, otra sección) y así el crecimiento nunca invade el pie.
-    """
-    if n_rows <= 0:
-        return max_h
-    available = top_y - BOTTOM_LIMIT - reserve
-    return max(min_h, min(max_h, available / n_rows))
-
-
-def center_block(top_y, block_h):
-    """
-    Devuelve la `y` superior para centrar verticalmente un bloque en el espacio
-    libre. Estirar filas sin límite para llenar la hoja se ve absurdo (una tabla
-    de 5 filas con renglones de 100 pt), pero dejarla pegada arriba con media
-    página en blanco debajo se lee como un error de maquetación. Centrarla —un
-    poco por encima del centro geométrico, que es donde el ojo lo espera— se lee
-    como una decisión de diseño.
-    """
-    free = top_y - BOTTOM_LIMIT
-    if block_h >= free:
-        return top_y
-    return top_y - (free - block_h) * 0.38
-
-
-def draw_header_band(c, title, subtitle, page_num):
-    c.setFillColor(NAVY)
-    c.rect(0, PAGE_H - 0.85 * inch, PAGE_W, 0.85 * inch, fill=1, stroke=0)
-    c.setFillColor(colors.white)
-    c.setFont(FONT_BOLD, 15)
-    c.drawString(0.6 * inch, PAGE_H - 0.5 * inch, title)
-    c.setFont(FONT_REGULAR, 9)
-    c.drawString(0.6 * inch, PAGE_H - 0.72 * inch, subtitle.upper())
-    c.setFont(FONT_REGULAR, 9)
-    c.drawRightString(PAGE_W - 0.6 * inch, PAGE_H - 0.6 * inch, "SULLIVAN · RUTHERFORD ESTATE")
-
-    c.setStrokeColor(RULE_LINE)
-    c.line(0.6 * inch, 0.5 * inch, PAGE_W - 0.6 * inch, 0.5 * inch)
-    c.setFillColor(GRAY)
-    c.setFont(FONT_REGULAR, 8)
-    c.drawRightString(PAGE_W - 0.6 * inch, 0.32 * inch, str(page_num))
-
-
-def draw_section_title(c, text, y):
-    c.setFillColor(NAVY)
-    c.setFont(FONT_BOLD, 13)
-    c.drawString(0.6 * inch, y, text)
-    c.setStrokeColor(TAN)
-    c.setLineWidth(1.4)
-    c.line(0.6 * inch, y - 6, PAGE_W - 0.6 * inch, y - 6)
-    return y - 26
-
-
-def draw_kpi_cards(c, cards, y, card_h=0.85 * inch, gap=0.12 * inch):
-    """
-    Fila de tarjetas KPI que ocupa todo el ancho útil. Antes el ancho era fijo
-    (1.75 in): con 3 tarjetas quedaban 1.8 in de hueco a la derecha, y el valor
-    se desbordaba si el importe era largo.
-    """
-    n = max(1, len(cards))
-    card_w = (CONTENT_W - gap * (n - 1)) / n
-    x = MARGIN
-    for label, value, warn in cards:
-        c.setFillColor(CREAM)
-        c.setStrokeColor(RULE_LINE)
-        c.roundRect(x, y - card_h, card_w, card_h, 3, fill=1, stroke=1)
-        c.setFillColor(GRAY)
-        c.setFont(FONT_REGULAR, 7.5)
-        c.drawString(x + 9, y - 17, fit_text(label.upper(), card_w - 18, FONT_REGULAR, 7.5))
-        c.setFillColor(NEG if warn else NAVY)
-        # El tamaño baja solo si el valor no cabe, en vez de desbordarse.
-        size = 17.0
-        while size > 9.5 and pdfmetrics.stringWidth(str(value), FONT_BOLD, size) > card_w - 18:
-            size -= 0.5
-        c.setFont(FONT_BOLD, size)
-        c.drawString(x + 9, y - card_h + 15, fit_text(value, card_w - 18, FONT_BOLD, size))
-        x += card_w + gap
-    return y - card_h - 18
-
-
-def draw_horizontal_bars(c, labels, values, color_map, x, y, width, row_h=16, max_value=None):
-    """
-    Barras horizontales. La tipografía, el grosor de la barra y el ancho de la
-    columna de etiquetas se derivan de `row_h`, de modo que cuando la gráfica
-    crece para llenar la página no queden barras gruesas con texto diminuto.
-    """
-    max_value = max_value or (max(values) if values else 1)
-    max_value = max_value or 1
-
-    # Tipografía proporcional a la altura de fila (acotada para seguir siendo
-    # legible en gráficas densas y no volverse titular en las de pocas filas).
-    font_size = max(7.5, min(12.0, row_h * 0.42))
-    label_w = max(1.7 * inch, min(2.4 * inch, width * 0.28))
-    value_w = max(0.75 * inch, min(1.15 * inch, width * 0.14))
-    bar_area_w = width - label_w - value_w
-    bar_h = max(4.0, row_h * 0.62)          # deja aire entre barras
-    baseline = (row_h - font_size) / 2 + font_size * 0.22
-
-    c.setFont(FONT_REGULAR, font_size)
-    for i, (lab, val) in enumerate(zip(labels, values)):
-        row_y = y - i * row_h
-        c.setFillColor(colors.black)
-        c.drawString(x, row_y - row_h + baseline,
-                     fit_text(blank_if_missing(lab), label_w - 8, FONT_REGULAR, font_size))
-        bw = (val / max_value) * bar_area_w if max_value else 0
-        c.setFillColor(color_map.get(lab, TAN))
-        c.rect(x + label_w, row_y - row_h + (row_h - bar_h) / 2, max(bw, 1), bar_h, fill=1, stroke=0)
-        c.setFillColor(GRAY)
-        c.drawString(x + label_w + bar_area_w + 6, row_y - row_h + baseline, fmt_money(val))
-    return y - len(labels) * row_h - 10
-
-
-def draw_table(c, headers, rows, x, y, col_widths, row_h=16, total_row_idx=None,
-               align_right=None, zebra=True):
-    """
-    Tabla simple. `row_h` puede venir de auto_row_h() para llenar la página: la
-    tipografía y la línea base se calculan a partir de él para que el texto no
-    quede flotando diminuto dentro de filas altas.
-
-    `align_right` es un conjunto de índices de columna a alinear a la derecha
-    (las columnas de importes se leían mal pegadas a la izquierda).
-    """
-    align_right = align_right or set()
-    total_w = sum(col_widths)
-    font_size = max(7.5, min(11.0, row_h * 0.46))
-    baseline = (row_h - font_size) / 2 + font_size * 0.24
-
-    def cell(text, cx, cy, w, font, size, right):
-        # blank_if_missing es la última barrera antes de dibujar: aplica a TODAS
-        # las tablas del PDF, incluidas las que se agreguen después.
-        txt = fit_text(blank_if_missing(text), w - 8, font, size)
-        if right:
-            c.drawRightString(cx + w - 4, cy, txt)
-        else:
-            c.drawString(cx + 4, cy, txt)
-
-    c.setFont(FONT_BOLD, font_size)
-    c.setFillColor(NAVY)
-    c.rect(x, y - row_h, total_w, row_h, fill=1, stroke=0)
-    c.setFillColor(colors.white)
-    cx = x
-    for i, (h, w) in enumerate(zip(headers, col_widths)):
-        cell(h, cx, y - row_h + baseline, w, FONT_BOLD, font_size, i in align_right)
-        cx += w
-    y -= row_h
-
-    for ridx, row in enumerate(rows):
-        is_total = total_row_idx is not None and ridx == total_row_idx
-        font = FONT_BOLD if is_total else FONT_REGULAR
-        if is_total:
-            c.setFillColor(CREAM)
-            c.rect(x, y - row_h, total_w, row_h, fill=1, stroke=0)
-        elif zebra and ridx % 2 == 1:
-            # Bandas muy tenues: con filas altas, seguir la línea a lo ancho de
-            # 7.3 in a ojo es incómodo.
-            c.setFillColor(colors.HexColor("#FAF8F3"))
-            c.rect(x, y - row_h, total_w, row_h, fill=1, stroke=0)
-        c.setFont(font, font_size)
-        c.setFillColor(colors.black)
-        cx = x
-        for i, (val, w) in enumerate(zip(row, col_widths)):
-            cell(val, cx, y - row_h + baseline, w, font, font_size, i in align_right)
-            cx += w
-        c.setStrokeColor(RULE_LINE)
-        c.line(x, y - row_h, x + total_w, y - row_h)
-        y -= row_h
-    return y
-
-
-# ==============================================================================
 # 3. PÁGINAS
 # ==============================================================================
 def page_cover(c, period_label, total_dtc, reconciliation):
@@ -558,7 +336,8 @@ def page_classification_cascade(c, page_num):
         ("7", "POS", "any", "Tasting Room"),
         ("8", "Club", "Club name contains 'Estate'", "Estate Club"),
         ("9", "Club", "Club name contains \"Founder\"", "Founder's Club"),
-        ("—", "Club", "names neither program (diagnostic)", "Club - Review (Admin/POS)"),
+        ("—", "Club", "names neither program (diagnostic)", UNCLASSIFIED),
+        ("—", "any other", "channel not recognized (diagnostic)", UNCLASSIFIED),
     ]
     # El glosario va debajo, así que la tabla solo puede crecer hasta dejarle
     # espacio: 2 notas + título de sección + una fila de glosario por categoría.
@@ -632,24 +411,30 @@ def page_financial_reconciliation(c, vista_a, reconciliation, diagnostics, page_
                  "excluding tax, shipping and tips. Match is evaluated to the cent (zero tolerance).")
     y -= 22
 
-    if diagnostics.get("unassigned_rows") or diagnostics.get("review_rows"):
-        y = draw_section_title(c, "Diagnostics — lines outside the 9 categories", y)
+    if diagnostics.get("unclassified_rows"):
+        y = draw_section_title(c, f"Diagnostics — {UNCLASSIFIED} (outside the 9 categories)", y)
         c.setFont(FONT_REGULAR, 9)
         c.setFillColor(colors.black)
         c.drawString(0.7 * inch, y,
-                     f"Unclassified lines (Unassigned): {diagnostics.get('unassigned_rows', 0):,}  ·  "
-                     f"{fmt_money(diagnostics.get('unassigned_subtotal', 0.0))}")
+                     f"Total unclassified: {diagnostics.get('unclassified_rows', 0):,} line(s)  ·  "
+                     f"{fmt_money(diagnostics.get('unclassified_subtotal', 0.0))}")
         c.drawString(0.7 * inch, y - 14,
-                     f"Club lines flagged for review: {diagnostics.get('review_rows', 0):,}  ·  "
-                     f"{fmt_money(diagnostics.get('review_subtotal', 0.0))}")
+                     f"   of which Club with no program named: {diagnostics.get('club_no_program_rows', 0):,}  ·  "
+                     f"{fmt_money(diagnostics.get('club_no_program_subtotal', 0.0))}")
+        c.drawString(0.7 * inch, y - 28,
+                     f"   of which channel not recognized: {diagnostics.get('unknown_channel_rows', 0):,}  ·  "
+                     f"{fmt_money(diagnostics.get('unknown_channel_subtotal', 0.0))}")
         c.setFillColor(GRAY)
         c.setFont(FONT_REGULAR, 8)
-        c.drawString(0.7 * inch, y - 28,
-                     "These lines are included in Total DTC so the reconciliation stays exact; "
+        c.drawString(0.7 * inch, y - 42,
+                     "Counted in Total DTC so the reconciliation stays exact to the cent; "
                      "they still need a business decision before the next close.")
-        y -= 48
+        y -= 62
 
-    y = draw_section_title(c, "Final Checklist (Sullivan_data_guide.md)", y)
+    # El titulo NO nombra el archivo de especificacion interno: es una
+    # seccion visible al cliente y la regla del repo prohibe rutas y
+    # nombres de archivo de desarrollo en la interfaz entregada.
+    y = draw_section_title(c, "Final Checklist", y)
     checklist = [
         "Same reporting period across all exports", "One Order ID counted once",
         "Inbound split before Telesales", "Tock subtracted from Web/Ecommerce",
@@ -720,17 +505,18 @@ def page_club_deep_dive(c, vista_b, page_num):
 
 def page_club_review_cases(c, vista_b, total_dtc, page_num):
     """
-    Órdenes de canal Club que no nombran ni el programa Estate ni el Founder's.
+    Detalle de la categoría "No clasificados": órdenes de canal Club que no
+    nombran ni el programa Estate ni el Founder's, más las de canal no reconocido.
     La página se conserva a propósito: es venta REAL incluida en el Total DTC pero
-    sin programa asignado, así que alguien tiene que decidir a dónde va. Sin esta
-    página nadie sabría que esas órdenes existen.
+    sin categoría de negocio, así que alguien tiene que decidir a dónde va. Sin
+    esta página nadie sabría que esas órdenes existen.
 
     La nota, la tabla y el total se maquetan como UN SOLO bloque centrado. Antes
     la nota quedaba pegada arriba y la tabla se centraba por separado, dejando un
     hueco enorme entre ambas que se leía como un error de maquetación.
     """
-    draw_header_band(c, "Club Deep Dive",
-                     "Review cases — Club orders with no program assigned", page_num)
+    draw_header_band(c, UNCLASSIFIED,
+                     "Lines the 9-priority cascade could not assign", page_num)
     top = PAGE_H - 1.2 * inch
     cases = vista_b["review_cases"]
 
@@ -738,8 +524,8 @@ def page_club_review_cases(c, vista_b, total_dtc, page_num):
         c.setFont(FONT_REGULAR, 10.5)
         c.setFillColor(GRAY)
         c.drawString(MARGIN, top - 10,
-                     "No review cases detected in this period — every Club order maps to the "
-                     "Estate or Founder's program.")
+                     "Nothing unclassified in this period — every line landed in one of the "
+                     "9 categories.")
         c.showPage()
         return
 
@@ -757,8 +543,9 @@ def page_club_review_cases(c, vista_b, total_dtc, page_num):
         weights.append(max(6, min(26, longest)))
     money_cols = {i for i, h in enumerate(headers) if h in ("Net Sales", "SubTotal")}
 
-    intro = ("Club-channel orders whose Club Title and Club Package name neither the Estate nor "
-             "the Founder's program.")
+    intro = ("Orders the cascade could not assign: Club-channel lines whose Club Title and Club "
+             "Package name neither the Estate nor the Founder's program, plus any line whose "
+             "channel is not one of Inbound / Web / POS / Club.")
     action = (f"These {len(cases)} orders total {fmt_money(review_total)} ({share:.2f}% of Total "
               "DTC). They are counted in Total DTC so the reconciliation stays exact to the cent, "
               "but still need a decision on which program they belong to.")
@@ -813,8 +600,10 @@ def page_appendix(c, page_num, data_note):
         "",
         "Note on Order Tag: the OrderSales/FinancialReport exports do not include a",
         "populated 'Order Tag' column, so Event / Corporate / Friends & Family only",
-        "trigger if that column exists in the input file. See sullivan_c7_simulator.py",
-        "for the documented finding and the simulated tag model.",
+        "trigger when that column is present in the input file.",
+        # NO se nombra el script: es texto visible al cliente y la regla del
+        # repo prohíbe nombres de archivo internos en la interfaz entregada.
+        # El hecho técnico se conserva; lo que se quita es la ruta.
         "",
         "References: Commerce7 Sales Summary Report, Order Channels, Sales",
         "Attributes and Reports Overview documentation. Business rules by Maya.",
@@ -843,27 +632,38 @@ def load_data_file(path_str: str | Path) -> pd.DataFrame:
 # ==============================================================================
 # 4. MAIN
 # ==============================================================================
-def build_pdf(order_sales_path, financial_report_path, output_path, period_label):
+def build_pdf(order_sales_path, financial_report_path, output_path, period_label,
+              lang=pdf_common.DEFAULT_LANG_PDF):
+    # Un PDF se genera en UN idioma: no puede llevar selector como el HTML.
+    pdf_common.set_lang(lang)
     df = load_data_file(order_sales_path)
     df = classify_orders(df)
     amt_col = money_col(df)
     df[amt_col] = coerce_money(df[amt_col])
     order_col = "Order Number" if "Order Number" in df.columns else "Id"
 
-    # Las filas 'Unassigned' se incluyen explícitamente cuando existen: si se
-    # descartan (reindex solo sobre CATEGORY_ORDER) el total subcuenta y el
-    # cuadre falla sin diagnóstico.
+    # UNCLASSIFIED ya vive dentro de CATEGORY_ORDER, así que el reindex nunca
+    # descarta renglones: antes 'Unassigned' quedaba fuera y el total subcontaba
+    # en silencio, haciendo fallar el cuadre sin diagnóstico.
+    unc = df["Final Category"] == UNCLASSIFIED
+    reason = df.get("Unclassified Reason", pd.Series("", index=df.index)).fillna("")
+    club_no_prog = unc & (reason == REASON_CLUB_NO_PROGRAM)
+    bad_channel = unc & (reason == REASON_UNKNOWN_CHANNEL)
     diagnostics = {
-        "unassigned_rows": int((df["Final Category"] == "Unassigned").sum()),
-        "unassigned_subtotal": round(float(df.loc[df["Final Category"] == "Unassigned", amt_col].sum()), 2),
-        "review_rows": int((df["Final Category"] == "Club - Review (Admin/POS)").sum()),
-        "review_subtotal": round(float(df.loc[df["Final Category"] == "Club - Review (Admin/POS)", amt_col].sum()), 2),
+        "unclassified_rows": int(unc.sum()),
+        "unclassified_subtotal": round(float(df.loc[unc, amt_col].sum()), 2),
+        "club_no_program_rows": int(club_no_prog.sum()),
+        "club_no_program_subtotal": round(float(df.loc[club_no_prog, amt_col].sum()), 2),
+        "unknown_channel_rows": int(bad_channel.sum()),
+        "unknown_channel_subtotal": round(float(df.loc[bad_channel, amt_col].sum()), 2),
     }
-    if diagnostics["unassigned_rows"]:
-        warn(f"{diagnostics['unassigned_rows']} renglones quedaron sin clasificar "
-             f"(${diagnostics['unassigned_subtotal']:,.2f}). Se incluyen como 'Unassigned' para "
-             "que el total cuadre; revisa Channel / Club Title en el origen.")
-    cat_order = CATEGORY_ORDER + (["Unassigned"] if diagnostics["unassigned_rows"] else [])
+    if diagnostics["unclassified_rows"]:
+        warn(f"{diagnostics['unclassified_rows']} renglones cayeron en '{UNCLASSIFIED}' "
+             f"(${diagnostics['unclassified_subtotal']:,.2f}): "
+             f"{diagnostics['club_no_program_rows']} de Club sin programa, "
+             f"{diagnostics['unknown_channel_rows']} con canal no reconocido. "
+             "Se incluyen en el Total DTC para que el cuadre sea exacto.")
+    cat_order = list(CATEGORY_ORDER)
 
     g = df.groupby("Final Category").agg(orders=(order_col, "nunique"), subtotal=(amt_col, "sum")) \
         .reindex(cat_order).fillna(0).reset_index()
@@ -885,9 +685,10 @@ def build_pdf(order_sales_path, financial_report_path, output_path, period_label
     gp["aov"] = np.where(gp["orders"] > 0, (gp["subtotal"] / gp["orders"]).round(2), 0)
     # Ordenar paquetes de mayor a menor por venta neta (SubTotal)
     gp = gp.sort_values(by="subtotal", ascending=False).reset_index(drop=True)
-    # Casos de revisión (Admin/POS Marked as Club): una fila POR ORDEN, con el
+    # Tabla de auditoría de "No clasificados": una fila POR ORDEN, con el
     # SubTotal agregado a nivel orden (antes salía una fila por línea de ítem).
-    review = df[df["Final Category"] == "Club - Review (Admin/POS)"]
+    # Cubre ambos motivos, distinguidos por la columna 'Reason'.
+    review = df[df["Final Category"] == UNCLASSIFIED]
     review_cases = []
     review_total = 0.0
     if not review.empty:
@@ -897,15 +698,17 @@ def build_pdf(order_sales_path, financial_report_path, output_path, period_label
             agg["Order Submitted Date"] = "first"
         if "Channel" in review.columns:
             agg["Channel"] = "first"
-        for extra in ("Club Title", "Club Package"):
+        for extra in ("Club Title", "Club Package", "Unclassified Reason"):
             if extra in review.columns:
                 agg[extra] = "first"
         review_cases = review.groupby(order_col, as_index=False).agg(agg).rename(
-            columns={order_col: "Order Number", amt_col: "SubTotal"}
+            columns={order_col: "Order Number", amt_col: "SubTotal",
+                     "Unclassified Reason": "Reason"}
         )
         review_cases = review_cases[
             [c for c in ("Order Number", "Order Submitted Date", "Channel",
-                         "Club Title", "Club Package", "SubTotal") if c in review_cases.columns]
+                         "Club Title", "Club Package", "Reason", "SubTotal")
+             if c in review_cases.columns]
         ]
         review_cases = review_cases.sort_values("SubTotal", ascending=False)
         review_total = round(float(review_cases["SubTotal"].sum()), 2)
@@ -961,6 +764,9 @@ def build_pdf(order_sales_path, financial_report_path, output_path, period_label
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     c = canvas.Canvas(str(out), pagesize=letter)
+    # Envolver el canvas cubre los `drawString` directos de portadas y pies,
+    # que no pasan por los ayudantes de maquetación.
+    pdf_common.localize_canvas(c)
 
     page_cover(c, period_label, total_dtc, reconciliation)
     page = 2
@@ -970,7 +776,10 @@ def build_pdf(order_sales_path, financial_report_path, output_path, period_label
     page_financial_reconciliation(c, vista_a, reconciliation, diagnostics, page); page += 1
     page_club_deep_dive(c, vista_b, page); page += 1
     page_club_review_cases(c, vista_b, total_dtc, page); page += 1
-    data_note = "simulated data (sullivan_c7_simulator.py)" if "sim" in Path(order_sales_path).stem.lower() else "real Commerce7 export"
+    # Sin el nombre del script: el cliente necesita saber si la fuente es
+    # simulada o real, no con qué archivo del repo se generó.
+    data_note = ("simulated data" if "sim" in Path(order_sales_path).stem.lower()
+                 else "real Commerce7 export")
     page_appendix(c, page, data_note)
 
     c.save()

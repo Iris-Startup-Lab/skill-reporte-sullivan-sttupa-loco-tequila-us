@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+<meta charset="UTF-8">
+<title>Loco Tequila USA — Ventas y Margen</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand-maroon:#6E1E28;
+    --brand-maroon-deep:#5A1822;
+    --header-text:#FFFFFF;
+    --section-title:#6E1E28;
+    --section-subtitle:#8A8A8A;
+    --page-bg:#FFFFFF;
+    --rule-line:#D9D9D9;
+
+    --p-blanco:#9B1C31;
+    --p-corazon:#9A9A9A;
+    --p-ambar:#A96C43;
+    --p-269:#1F1F1F;
+    --p-aureo:#1F6E6E;
+    --p-200:#F2C14E;
+
+    --c-offtrade:#1F3B5C;
+    --c-ontrade:#7A1E2B;
+    --c-directa:#E8A33D;
+    --c-ecommerce:#5A5A5A;
+    --c-amigos:#2E6E6E;
+
+    --chart-plan-line:#E23B2E;
+    --chart-lastyear-area:#E7D6A6;
+    --chart-grid:#E2E2E2;
+    --chart-label:#333333;
+    --highlight-cream:#FBF3DD;
+    --pill-bg:#F6E2E2;
+    --pill-text:#9B1C31;
+    --pos-value:#333333;
+    --neg-value:#E23B2E;
+    --ok-green:#1E7145;
+    --warn-mustard:#8A6D00;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:#F4F1EC;
+    color:#222;
+    font-family:'Poppins', -apple-system, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .page{ max-width:1180px; margin:0 auto; background:var(--page-bg); box-shadow:0 0 40px rgba(0,0,0,0.06); }
+
+  /* ---------- HEADER BAND ---------- */
+  .band{
+    background:linear-gradient(135deg, var(--brand-maroon) 0%, var(--brand-maroon-deep) 100%);
+    color:var(--header-text);
+    padding:30px 44px 26px;
+    border-bottom:4px solid var(--brand-maroon-deep);
+    display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px;
+  }
+  .band h1{ margin:0 0 4px; font-size:28px; font-weight:800; letter-spacing:0.2px; }
+  .band .subtitle{ margin:0; font-size:13.5px; font-weight:400; opacity:0.92; }
+  .band .logo{ text-align:right; font-weight:800; font-size:20px; line-height:1.1; }
+  .band .logo span{ display:block; font-size:11px; font-weight:600; letter-spacing:2.5px; border-top:2px solid rgba(255,255,255,0.85); padding-top:4px; margin-top:2px; }
+  .proposal-tag{
+    display:inline-flex; align-items:center; gap:6px;
+    margin-top:8px;
+    background:rgba(255,255,255,0.14);
+    border:1px solid rgba(255,255,255,0.4);
+    border-radius:20px;
+    padding:5px 14px;
+    font-size:10.5px; font-weight:700; letter-spacing:0.4px;
+  }
+  .proposal-tag::before{ content:"●"; color:#F2C14E; font-size:9px; }
+
+  .content{ padding:34px 44px 20px; }
+
+  .section{ margin-top:44px; }
+  .section:first-child{ margin-top:0; }
+  .section-head{ display:flex; align-items:baseline; gap:12px; border-bottom:2px solid var(--rule-line); padding-bottom:9px; margin-bottom:18px; }
+  .section-head h2{ color:var(--section-title); font-size:19px; font-weight:700; margin:0; }
+  .section-head .sub{ color:var(--section-subtitle); font-size:11.5px; font-weight:400; margin-left:auto; text-align:right; font-style:italic; }
+
+  /* KPI strip */
+  .kpi-strip{ display:grid; grid-template-columns:repeat(5,1fr); gap:12px; }
+  .kpi{ background:var(--highlight-cream); border-radius:10px; padding:16px 12px; text-align:center; }
+  .kpi .num{ font-size:22px; font-weight:800; color:var(--brand-maroon); line-height:1.1; }
+  .kpi .num small{ font-size:12px; font-weight:600; color:#8A8A8A; display:block; margin-top:2px;}
+  .kpi .lbl{ font-size:10px; color:#555; margin-top:6px; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; line-height:1.3;}
+
+  /* donut summary */
+  .donut-block{ display:flex; align-items:center; gap:34px; flex-wrap:wrap; }
+  .donut{ width:180px;height:180px;border-radius:50%; flex-shrink:0;
+    background:conic-gradient(
+      var(--p-blanco) 0% 60.14%,
+      var(--p-ambar) 60.14% 77.33%,
+      var(--p-corazon) 77.33% 92.26%,
+      var(--p-aureo) 92.26% 95.89%,
+      var(--p-200) 95.89% 98.49%,
+      var(--p-269) 98.49% 100%
+    );
+    position:relative;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .donut::after{ content:""; width:104px;height:104px; background:#fff; border-radius:50%; position:absolute; }
+  .donut-center{ position:relative; text-align:center; z-index:2; }
+  .donut-center .big{ font-size:19px; font-weight:800; color:var(--brand-maroon); line-height:1; }
+  .donut-center .small{ font-size:9px; color:#888; font-weight:600; text-transform:uppercase; margin-top:2px;}
+  .donut-legend{ display:flex; flex-direction:column; gap:9px; flex:1; min-width:260px; }
+  .dl-row{ display:flex; align-items:center; gap:10px; font-size:12.5px; }
+  .dl-row .dot{ width:11px;height:11px;border-radius:50%; flex-shrink:0; }
+  .dl-row .name{ font-weight:600; flex:1; }
+  .dl-row .val{ font-weight:700; color:#333; }
+  .dl-row .pill{ background:var(--pill-bg); color:var(--pill-text); font-size:10.5px; font-weight:700; border-radius:10px; padding:2px 9px; min-width:44px; text-align:center; }
+
+  /* generic table */
+  table.rpt{ width:100%; border-collapse:collapse; font-size:12px; }
+  table.rpt th{ text-align:right; font-weight:700; font-size:9.5px; text-transform:uppercase; letter-spacing:0.3px; color:#777; padding:7px 10px; border-bottom:2px solid var(--rule-line); }
+  table.rpt th:first-child{ text-align:left; }
+  table.rpt td{ text-align:right; padding:8px 10px; border-bottom:1px solid #EFEBE3; color:#333; }
+  table.rpt td:first-child{ text-align:left; font-weight:600; }
+  table.rpt tr.total td{ background:var(--highlight-cream); font-weight:800; color:var(--brand-maroon); border-bottom:none; border-top:2px solid var(--brand-maroon); }
+  table.rpt tr:hover td{ background:#FAF8F4; }
+  table.rpt tr.total:hover td{ background:var(--highlight-cream); }
+
+  .badge{ display:inline-flex; align-items:center; gap:4px; font-size:9px; font-weight:700; padding:2px 8px; border-radius:10px; }
+  .badge-on{ background:#E4EEF5; color:var(--c-offtrade); }
+  .badge-off{ background:#F1E9E2; color:#7A4A2E; }
+  .badge-unk{ background:#EFEFEF; color:#888; }
+
+  /* monthly chart */
+  .chart-card{ background:#FAF8F4; border-radius:10px; padding:20px 22px 14px; }
+  .chart-legend{ display:flex; gap:20px; font-size:11px; font-weight:600; margin-bottom:14px; }
+  .chart-legend .li{ display:flex; align-items:center; gap:6px; }
+  .chart-legend .sw{ width:12px;height:12px;border-radius:2px; }
+  .bars{ display:flex; align-items:flex-end; gap:14px; height:150px; border-bottom:1px solid var(--chart-grid); padding-bottom:2px; }
+  .bar-group{ flex:1; display:flex; align-items:flex-end; justify-content:center; gap:4px; height:100%; position:relative; }
+  .bar{ width:16px; border-radius:3px 3px 0 0; position:relative; }
+  .bar .val{ position:absolute; top:-16px; left:50%; transform:translateX(-50%); font-size:8.5px; font-weight:700; color:var(--chart-label); white-space:nowrap;}
+  .bar-labels{ display:flex; gap:14px; margin-top:6px; }
+  .bar-labels span{ flex:1; text-align:center; font-size:10px; color:#777; font-weight:600; }
+
+  /* horizontal bars (salesperson) */
+  .hbar-row{ display:flex; align-items:center; gap:10px; margin-bottom:9px; }
+  .hbar-label{ width:210px; font-size:11.5px; font-weight:600; color:#444; flex-shrink:0; text-align:right; }
+  .hbar-track{ flex:1; background:#EFEBE3; border-radius:5px; height:16px; position:relative; overflow:hidden; }
+  .hbar-fill{ height:100%; border-radius:5px; display:flex; align-items:center; }
+  .hbar-val{ margin-left:8px; font-size:11px; font-weight:700; color:#333; min-width:46px; }
+  .hbar-pending{ background-image:repeating-linear-gradient(45deg, rgba(255,255,255,0.35) 0 6px, transparent 6px 12px); }
+
+  /* dtc compare cards */
+  .dtc-grid{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .dtc-card{ border-radius:10px; padding:18px 20px; }
+  .dtc-card.attr{ background:#EFF3F0; border-left:5px solid var(--c-amigos); }
+  .dtc-card.ecom{ background:#F1EFEF; border-left:5px solid var(--c-ecommerce); }
+  .dtc-card h4{ margin:0 0 8px; font-size:12.5px; text-transform:uppercase; letter-spacing:0.3px; color:#444; }
+  .dtc-card .big{ font-size:24px; font-weight:800; color:var(--brand-maroon); }
+  .dtc-card .big small{ font-size:12px; color:#888; font-weight:600; margin-left:6px;}
+  .dtc-card .rev{ font-size:13px; font-weight:700; color:#333; margin-top:4px; }
+  .chips{ display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .chip{ font-size:9.5px; font-weight:600; background:#fff; border:1px solid var(--rule-line); border-radius:12px; padding:3px 9px; color:#555; }
+
+  .note-block{
+    margin-top:14px;
+    background:#FAF8F4;
+    border-radius:8px;
+    padding:12px 16px;
+  }
+  .note-block p{ margin:0 0 5px; font-size:10.5px; color:#8A8A8A; font-style:italic; line-height:1.5; }
+  .note-block p:last-child{ margin-bottom:0; }
+  .note-block strong{ color:#6A6A6A; font-style:normal; }
+
+  footer{
+    padding:20px 44px 28px;
+    border-top:1px solid var(--rule-line);
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:10px; color:#999; flex-wrap:wrap; gap:8px;
+  }
+
+  @media (max-width:760px){
+    .kpi-strip{ grid-template-columns:repeat(2,1fr); }
+    .band{ padding:22px 20px; }
+    .content{ padding:22px 20px; }
+    .dtc-grid{ grid-template-columns:1fr; }
+    .hbar-label{ width:130px; font-size:10px;}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="band">
+    <div>
+      <span class="proposal-tag">PROPUESTA DE REPORTE — datos calculados de fuentes crudas</span>
+      <h1>Ventas y Margen — Loco Tequila USA</h1>
+      <p class="subtitle">Corte al 24 de agosto de 2026 &nbsp;·&nbsp; Generado con <code style="background:rgba(255,255,255,.15);padding:1px 6px;border-radius:4px;">loco_tequila_us_relationships.py</code></p>
+    </div>
+    <div class="logo">Loco<span>TEQUILA USA</span></div>
+  </div>
+
+  <div class="content">
+
+    <!-- KPI STRIP -->
+    <div class="section">
+      <div class="kpi-strip">
+        <div class="kpi"><div class="num">635<small>botellas</small></div><div class="lbl">Depletions California</div></div>
+        <div class="kpi"><div class="num">350<small>botellas</small></div><div class="lbl">Depletions Texas (off-premise)</div></div>
+        <div class="kpi"><div class="num">$114,850<small>81.0 cajas 9L</small></div><div class="lbl">Wholesale a distribuidores</div></div>
+        <div class="kpi"><div class="num">339<small>botellas</small></div><div class="lbl">DTC + Ecommerce</div></div>
+        <div class="kpi"><div class="num">220.6<small>cajas 9L</small></div><div class="lbl">Inventario disponible</div></div>
+      </div>
+    </div>
+
+    <!-- RESUMEN POR PRODUCTO -->
+    <div class="section">
+      <div class="section-head">
+        <h2>Mezcla de Inventario Disponible por Producto</h2>
+        <div class="sub">Fuente: FB Supplier Inventory + Signature Inventory History + Park Street · validado exacto</div>
+      </div>
+      <div class="donut-block">
+        <div class="donut"><div class="donut-center"><div class="big">220.6</div><div class="small">Cajas 9L</div></div></div>
+        <div class="donut-legend">
+          <div class="dl-row"><span class="dot" style="background:var(--p-blanco)"></span><span class="name">Loco Blanco</span><span class="val">132.75</span><span class="pill">60%</span></div>
+          <div class="dl-row"><span class="dot" style="background:var(--p-ambar)"></span><span class="name">Loco Ámbar</span><span class="val">37.92</span><span class="pill">17%</span></div>
+          <div class="dl-row"><span class="dot" style="background:var(--p-corazon)"></span><span class="name">Puro Corazón</span><span class="val">32.92</span><span class="pill">15%</span></div>
+          <div class="dl-row"><span class="dot" style="background:var(--p-aureo)"></span><span class="name">Loco Áureo</span><span class="val">8.00</span><span class="pill">4%</span></div>
+          <div class="dl-row"><span class="dot" style="background:var(--p-200)"></span><span class="name">Blanco 200mL</span><span class="val">5.73</span><span class="pill">3%</span></div>
+          <div class="dl-row"><span class="dot" style="background:var(--p-269)"></span><span class="name">Ltd. Edición Ángeles Puro</span><span class="val">3.33</span><span class="pill">2%</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORICO MENSUAL -->
+    <div class="section">
+      <div class="section-head">
+        <h2>Depletions Mensuales — California vs. Texas</h2>
+        <div class="sub">Botellas · Ene–Ago 2026 · fuente: Signature (CA) y FB Depletion (TX)</div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-legend">
+          <div class="li"><span class="sw" style="background:var(--c-offtrade)"></span>California</div>
+          <div class="li"><span class="sw" style="background:var(--c-directa)"></span>Texas</div>
+        </div>
+        <div class="bars">
+          <div class="bar-group"><div class="bar" style="height:27.3%;background:var(--c-offtrade)"><span class="val">50</span></div><div class="bar" style="height:17.5%;background:var(--c-directa)"><span class="val">32</span></div></div>
+          <div class="bar-group"><div class="bar" style="height:45.4%;background:var(--c-offtrade)"><span class="val">83</span></div><div class="bar" style="height:9.8%;background:var(--c-directa)"><span class="val">18</span></div></div>
+          <div class="bar-group"><div class="bar" style="height:55.2%;background:var(--c-offtrade)"><span class="val">101</span></div><div class="bar" style="height:27.3%;background:var(--c-directa)"><span class="val">50</span></div></div>
+          <div class="bar-group"><div class="bar" style="height:60.1%;background:var(--c-offtrade)"><span class="val">110</span></div><div class="bar" style="height:26.8%;background:var(--c-directa)"><span class="val">49</span></div></div>
+          <div class="bar-group"><div class="bar" style="height:24.0%;background:var(--c-offtrade)"><span class="val">44</span></div><div class="bar" style="height:18.6%;background:var(--c-directa)"><span class="val">34</span></div></div>
+          <div class="bar-group"><div class="bar" style="height:100%;background:var(--c-offtrade)"><span class="val">183</span></div><div class="bar" style="height:21.9%;background:var(--c-directa)"><span class="val">40</span></div></div>
+          <div class="bar-group"><div class="bar" style="height:14.2%;background:var(--c-offtrade)"><span class="val">26</span></div><div class="bar" style="height:25.1%;background:var(--c-directa)"><span class="val">46</span></div></div>
+          <div class="bar-group"><div class="bar" style="height:20.8%;background:var(--c-offtrade)"><span class="val">38</span></div><div class="bar" style="height:44.3%;background:var(--c-directa)"><span class="val">81</span></div></div>
+        </div>
+        <div class="bar-labels"><span>Ene</span><span>Feb</span><span>Mar</span><span>Abr</span><span>May</span><span>Jun</span><span>Jul</span><span>Ago</span></div>
+      </div>
+      <div class="note-block">
+        <p><strong>Nota metodológica:</strong> California y Texas suman 635 y 350 botellas YTD respectivamente en este cálculo directo de los archivos de distribuidor. El reporte oficial de Sara reporta 545 y 319 — una diferencia de 16.5% y 9.7% cuya regla exacta (¿devoluciones? ¿corte de fecha distinto?) no se pudo aislar con los 8 archivos crudos disponibles. Ver <code>loco_tequila_us_relationships.md</code> §3.4.</p>
+      </div>
+    </div>
+
+    <!-- WHOLESALE -->
+    <div class="section">
+      <div class="section-head">
+        <h2>Wholesale — Venta a Distribuidores</h2>
+        <div class="sub">Fuente: SalesOrdersSummary (Park Street) · Customer Type = Wholesaler · validado exacto</div>
+      </div>
+      <table class="rpt">
+        <thead><tr><th>Distribuidor</th><th>Cajas 9L</th><th>Revenue (USD)</th></tr></thead>
+        <tbody>
+          <tr><td>Southern Glazer's – CA (Santa Fe)</td><td>36.0</td><td>$58,000.00</td></tr>
+          <tr><td>Favorite Brands – TX (Houston)</td><td>23.0</td><td>$28,419.80</td></tr>
+          <tr><td>Southern Glazer's – CA (Union City)</td><td>20.0</td><td>$25,625.00</td></tr>
+          <tr><td>Brescome &amp; Barton – CT (North Haven)</td><td>2.0</td><td>$2,805.00</td></tr>
+          <tr class="total"><td>Total</td><td>81.0</td><td>$114,849.80</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- DIRECT TO RETAIL -->
+    <div class="section">
+      <div class="section-head">
+        <h2>Venta Directa a Retail</h2>
+        <div class="sub">Fuente: SalesOrdersSummary · Customer Type = Retailer · aproximado</div>
+      </div>
+      <table class="rpt">
+        <thead><tr><th>Cuenta</th><th>Cajas 9L</th><th>Revenue (USD)</th></tr></thead>
+        <tbody>
+          <tr><td>Melrose Gas – CA (BML)</td><td>10.10</td><td>$24,995.80</td></tr>
+          <tr><td>Wally's Vinoteca – CA (Beverly Hills)</td><td>0.33</td><td>$3,750.00</td></tr>
+          <tr><td>Old Town Liquor &amp; Deli – CA</td><td>1.00</td><td>$2,700.00</td></tr>
+          <tr><td>Wally's Wine and Spirits – CA</td><td>0.17</td><td>$2,200.00</td></tr>
+          <tr><td>Monsey Wine &amp; Liquor – NY</td><td>0.50</td><td>$1,674.00</td></tr>
+          <tr><td>Monterey Peninsula Country Club – CA</td><td>0.50</td><td>$954.00</td></tr>
+          <tr><td>Lahontan Golf Club – CA</td><td>0.08</td><td>$1,100.00</td></tr>
+          <tr><td>Grapes &amp; Grains – CA</td><td>0.08</td><td>$1,100.00</td></tr>
+          <tr class="total"><td>Total</td><td>12.76</td><td>$38,473.80</td></tr>
+        </tbody>
+      </table>
+      <div class="note-block">
+        <p><strong>Nota metodológica:</strong> el total de $38,474 no cuadra con el renglón "Other Park Street sales" del reporte oficial ($11,804 + Melrose Gas $23,152 = $34,956). Hipótesis: algunas de estas cuentas pequeñas ya se cuentan dentro de "Accounts H1/H2" bajo el vendedor correspondiente y Sara las excluye aquí para no duplicar — pendiente de confirmar. Ver §3.3.</p>
+      </div>
+    </div>
+
+    <!-- DTC / ECOMMERCE -->
+    <div class="section">
+      <div class="section-head">
+        <h2>DTC + Ecommerce</h2>
+        <div class="sub">Fuente: Shopify + Memory (columna Tags) · hipótesis, sin verificar con exactitud</div>
+      </div>
+      <div class="dtc-grid">
+        <div class="dtc-card attr">
+          <h4>Atribuido a vendedor / evento (Tags o Memory)</h4>
+          <div class="big">256<small>botellas</small></div>
+          <div class="rev">$50,120.53 venta bruta</div>
+          <div class="chips">
+            <span class="chip">Blanco 45</span>
+            <span class="chip">Blanco 200mL 43</span>
+            <span class="chip">Ámbar 16</span>
+            <span class="chip">Puro Corazón 23</span>
+            <span class="chip">Áureo 3</span>
+            <span class="chip">Ltd. Ángeles Puro 7</span>
+          </div>
+        </div>
+        <div class="dtc-card ecom">
+          <h4>Ecommerce sin atribuir (Shopify, sin Tags)</h4>
+          <div class="big">83<small>botellas</small></div>
+          <div class="rev">$20,467.00 venta bruta</div>
+          <div class="chips">
+            <span class="chip">Blanco 26</span>
+            <span class="chip">Puro Corazón 25</span>
+          </div>
+        </div>
+      </div>
+      <div class="note-block">
+        <p><strong>Nota metodológica:</strong> este corte preliminar (339 botellas totales) es mayor al "Direct to Consumer" (146) + "Ecommerce" (59) = 205 botellas del reporte oficial — falta afinar el filtro de fechas YTD y excluir cancelaciones/reembolsos totales. GM no incluido: ningún archivo crudo trae costo unitario (COGS) por SKU. Ver §3.6.</p>
+      </div>
+    </div>
+
+    <!-- TOP CUENTAS -->
+    <div class="section">
+      <div class="section-head">
+        <h2>Top 10 Cuentas por Volumen</h2>
+        <div class="sub">Unión de Signature + FB Depletion + Park Street · canal heurístico, aproximado</div>
+      </div>
+      <table class="rpt">
+        <thead><tr><th>Cuenta</th><th>Botellas (todas las fuentes)</th><th style="text-align:left">Canal</th></tr></thead>
+        <tbody>
+          <tr><td>Lahontan Golf Club</td><td>122.0</td><td style="text-align:left"><span class="badge badge-on">On Premise</span></td></tr>
+          <tr><td>Melrose Gas – CA (BML)</td><td>121.2</td><td style="text-align:left"><span class="badge badge-unk">Sin clasificar</span></td></tr>
+          <tr><td>BML Fulfillment Center</td><td>78.0</td><td style="text-align:left"><span class="badge badge-unk">Sin clasificar</span></td></tr>
+          <tr><td>Monterey Penn C.C.</td><td>52.0</td><td style="text-align:left"><span class="badge badge-unk">Sin clasificar</span></td></tr>
+          <tr><td>Twin Liquors #069</td><td>48.0</td><td style="text-align:left"><span class="badge badge-off">Off Premise</span></td></tr>
+          <tr><td>Spec's #091</td><td>42.0</td><td style="text-align:left"><span class="badge badge-unk">Sin clasificar</span></td></tr>
+          <tr><td>Twin Liquors #108</td><td>37.0</td><td style="text-align:left"><span class="badge badge-off">Off Premise</span></td></tr>
+          <tr><td>Wally's Warehouse – On Sale</td><td>36.0</td><td style="text-align:left"><span class="badge badge-unk">Sin clasificar</span></td></tr>
+          <tr><td>Brasswood</td><td>36.0</td><td style="text-align:left"><span class="badge badge-unk">Sin clasificar</span></td></tr>
+          <tr><td>Dallas Fine Wine &amp; Spirit Shop</td><td>32.0</td><td style="text-align:left"><span class="badge badge-off">Off Premise</span></td></tr>
+        </tbody>
+      </table>
+      <div class="note-block">
+        <p><strong>Nota metodológica:</strong> se excluyeron de este ranking las filas cuyo "cliente" es en realidad el stock que un vendedor carga consigo (Jackquelin Gonzalez, Sara Rowan, Mark Harding, etc. — Park Street las registra como "cliente" al mover inventario, pero no son cuentas finales). El canal "Sin clasificar" seguirá así hasta que exista una tabla maestra cuenta→canal. Ver §3.7.</p>
+      </div>
+    </div>
+
+    <!-- SALESPERSON -->
+    <div class="section">
+      <div class="section-head">
+        <h2>Desempeño por Vendedor — Acumulado</h2>
+        <div class="sub">Botellas, semanalizadas desde Signature + Park Street + Shopify/Memory · aproximado</div>
+      </div>
+      <div class="hbar-row"><div class="hbar-label">Sin mapeo — Signature (CA)</div><div class="hbar-track"><div class="hbar-fill hbar-pending" style="width:60.2%;background:#B8B0A0"></div></div><div class="hbar-val">635</div></div>
+      <div class="hbar-row"><div class="hbar-label">Sin atribuir — Shopify/Memory</div><div class="hbar-track"><div class="hbar-fill hbar-pending" style="width:39.8%;background:#B8B0A0"></div></div><div class="hbar-val">420</div></div>
+      <div class="hbar-row"><div class="hbar-label">Jacky Gonzalez (CA)</div><div class="hbar-track"><div class="hbar-fill" style="width:17.1%;background:var(--c-offtrade)"></div></div><div class="hbar-val">181</div></div>
+      <div class="hbar-row"><div class="hbar-label">Mark Harding (CA)</div><div class="hbar-track"><div class="hbar-fill" style="width:9.7%;background:var(--c-offtrade)"></div></div><div class="hbar-val">102</div></div>
+      <div class="hbar-row"><div class="hbar-label">Manuel Leyshon (TX/DTC)</div><div class="hbar-track"><div class="hbar-fill" style="width:5.0%;background:var(--c-directa)"></div></div><div class="hbar-val">53</div></div>
+      <div class="hbar-row"><div class="hbar-label">Joe Pat Clayton (TX)</div><div class="hbar-track"><div class="hbar-fill" style="width:0.7%;background:var(--c-directa)"></div></div><div class="hbar-val">7</div></div>
+      <div class="note-block">
+        <p><strong>Nota metodológica:</strong> las barras a rayas (635 + 420 botellas, ~75% del total con fecha reconstruible) están pendientes de atribución porque las cuentas de Signature CA y las órdenes de Shopify/Memory sin match de nombre en <code>Tags</code>/<code>Employee</code> no tienen todavía una tabla cuenta→vendedor. Este es el hueco de datos #1 documentado en el análisis — resolverlo movería la mayoría de este volumen a un vendedor real.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    <span>Datos calculados a partir de 8 archivos crudos de Client_Data/Loco_tequila_usa_data con <code>loco_tequila_us_relationships.py</code> · Metodología completa en <code>loco_tequila_us_relationships.md</code></span>
+    <span>Propuesta interna — no sustituye el reporte oficial de Sara</span>
+  </footer>
+
+</div>
+</body>
+</html>

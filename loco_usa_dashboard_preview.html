@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+<meta charset="UTF-8">
+<title>Loco Tequila USA — Vista de Potencial del Reporte</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand-maroon:#6E1E28;
+    --brand-maroon-deep:#5A1822;
+    --header-text:#FFFFFF;
+    --section-title:#6E1E28;
+    --section-subtitle:#8A8A8A;
+    --page-bg:#FFFFFF;
+    --rule-line:#D9D9D9;
+
+    --p-blanco:#9B1C31;
+    --p-corazon:#9A9A9A;
+    --p-ambar:#A96C43;
+    --p-269:#1F1F1F;
+    --p-aureo:#1F6E6E;
+    --p-200:#F2C14E;
+
+    --c-offtrade:#1F3B5C;
+    --c-ontrade:#7A1E2B;
+    --c-directa:#E8A33D;
+    --c-ecommerce:#5A5A5A;
+    --c-amigos:#2E6E6E;
+
+    --chart-plan-line:#E23B2E;
+    --chart-lastyear-area:#E7D6A6;
+    --chart-grid:#E2E2E2;
+    --chart-label:#333333;
+    --highlight-cream:#FBF3DD;
+    --pill-bg:#F6E2E2;
+    --pill-text:#9B1C31;
+    --pos-value:#333333;
+    --neg-value:#E23B2E;
+
+    --ok-green:#1E7145;
+    --warn-mustard:#8A6D00;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:#F4F1EC;
+    color:#222;
+    font-family:'Poppins', -apple-system, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .page{
+    max-width:1180px;
+    margin:0 auto;
+    background:var(--page-bg);
+    box-shadow:0 0 40px rgba(0,0,0,0.06);
+  }
+
+  /* ---------- HEADER BAND ---------- */
+  .band{
+    background:linear-gradient(135deg, var(--brand-maroon) 0%, var(--brand-maroon-deep) 100%);
+    color:var(--header-text);
+    padding:34px 44px 30px;
+    border-bottom:4px solid var(--brand-maroon-deep);
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    flex-wrap:wrap;
+    gap:16px;
+  }
+  .band h1{
+    margin:0 0 6px;
+    font-size:30px;
+    font-weight:800;
+    letter-spacing:0.2px;
+  }
+  .band p{
+    margin:0;
+    font-size:14px;
+    font-weight:400;
+    opacity:0.92;
+  }
+  .band .logo{
+    text-align:right;
+    font-weight:800;
+    font-size:20px;
+    line-height:1.1;
+  }
+  .band .logo span{
+    display:block;
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:2.5px;
+    border-top:2px solid rgba(255,255,255,0.85);
+    padding-top:4px;
+    margin-top:2px;
+  }
+  .band .tag{
+    display:inline-block;
+    margin-top:10px;
+    background:rgba(255,255,255,0.14);
+    border:1px solid rgba(255,255,255,0.35);
+    border-radius:20px;
+    padding:5px 14px;
+    font-size:11.5px;
+    font-weight:600;
+    letter-spacing:0.3px;
+  }
+
+  .content{ padding:36px 44px 60px; }
+
+  /* ---------- SECTION TITLES ---------- */
+  .section{ margin-top:52px; }
+  .section:first-child{ margin-top:0; }
+  .section-head{
+    display:flex;
+    align-items:baseline;
+    gap:12px;
+    border-bottom:2px solid var(--rule-line);
+    padding-bottom:10px;
+    margin-bottom:22px;
+  }
+  .section-num{
+    background:var(--brand-maroon);
+    color:#fff;
+    font-weight:800;
+    font-size:13px;
+    width:28px;height:28px;
+    border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+  }
+  .section-head h2{
+    color:var(--section-title);
+    font-size:21px;
+    font-weight:700;
+    margin:0;
+  }
+  .section-head .sub{
+    color:var(--section-subtitle);
+    font-size:12.5px;
+    font-weight:400;
+    margin-left:auto;
+    text-align:right;
+  }
+
+  /* ---------- KPI STRIP ---------- */
+  .kpi-strip{
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    gap:14px;
+    margin-bottom:8px;
+  }
+  .kpi{
+    background:var(--highlight-cream);
+    border-radius:10px;
+    padding:16px 14px;
+    text-align:center;
+  }
+  .kpi .num{
+    font-size:26px;
+    font-weight:800;
+    color:var(--brand-maroon);
+    line-height:1;
+  }
+  .kpi .lbl{
+    font-size:10.5px;
+    color:#555;
+    margin-top:6px;
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:0.4px;
+  }
+
+  /* ---------- SOURCE CARDS (Section 1) ---------- */
+  .source-groups{ display:flex; flex-direction:column; gap:22px; }
+  .group-label{
+    font-size:11px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:0.6px;
+    color:#fff;
+    padding:5px 12px;
+    border-radius:5px;
+    display:inline-block;
+    margin-bottom:10px;
+  }
+  .grid-src{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(250px,1fr));
+    gap:12px;
+  }
+  .src-card{
+    border:1px solid var(--rule-line);
+    border-left:5px solid var(--brand-maroon);
+    border-radius:8px;
+    padding:14px 16px;
+    background:#fff;
+  }
+  .src-card h4{
+    margin:0 0 4px;
+    font-size:13px;
+    font-weight:700;
+    color:#222;
+  }
+  .src-card .grain{
+    display:inline-block;
+    font-size:9.5px;
+    font-weight:700;
+    color:var(--brand-maroon);
+    background:var(--pill-bg);
+    border-radius:10px;
+    padding:2px 8px;
+    margin-bottom:6px;
+  }
+  .src-card p{
+    margin:0;
+    font-size:11.5px;
+    color:#555;
+    line-height:1.45;
+  }
+
+  /* ---------- FLOW DIAGRAM ---------- */
+  .flow{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    flex-wrap:wrap;
+    margin:26px 0 8px;
+    padding:22px;
+    background:#FAF8F4;
+    border-radius:12px;
+    border:1px dashed var(--rule-line);
+  }
+  .flow-col{ display:flex; flex-direction:column; gap:6px; }
+  .flow-box{
+    font-size:10.5px;
+    font-weight:600;
+    padding:7px 10px;
+    border-radius:6px;
+    color:#fff;
+    text-align:center;
+    min-width:120px;
+  }
+  .flow-arrow{ font-size:22px; color:var(--brand-maroon); font-weight:700; }
+  .flow-hub{
+    background:var(--brand-maroon);
+    color:#fff;
+    border-radius:10px;
+    padding:18px 22px;
+    font-weight:800;
+    font-size:13px;
+    text-align:center;
+    box-shadow:0 4px 14px rgba(110,30,40,0.25);
+  }
+  .flow-hub small{ display:block; font-weight:500; font-size:10px; opacity:0.85; margin-top:3px;}
+
+  /* ---------- SHEET CARDS (Section 2) ---------- */
+  .grid-sheets{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(260px,1fr));
+    gap:14px;
+  }
+  .sheet-card{
+    border-radius:8px;
+    padding:15px 16px;
+    background:#fff;
+    border:1px solid var(--rule-line);
+    border-top:4px solid var(--p-blanco);
+  }
+  .sheet-card h4{
+    margin:0 0 6px;
+    font-size:13.5px;
+    font-weight:700;
+    color:var(--brand-maroon);
+  }
+  .sheet-card p{ margin:0; font-size:11.5px; color:#555; line-height:1.5;}
+
+  /* ---------- STATUS BADGES ---------- */
+  .badge{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    font-size:10px;
+    font-weight:700;
+    padding:4px 10px;
+    border-radius:12px;
+    letter-spacing:0.2px;
+  }
+  .badge-exact{ background:#E4F2E9; color:var(--ok-green); }
+  .badge-approx{ background:#FBF0D9; color:var(--warn-mustard); }
+  .badge-hyp{ background:#F1E9F7; color:#6A3D9A; }
+
+  /* ---------- MAPPING CARDS (Section 3) ---------- */
+  .map-card{
+    border:1px solid var(--rule-line);
+    border-radius:10px;
+    margin-bottom:16px;
+    overflow:hidden;
+  }
+  .map-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:13px 18px;
+    background:#FAF8F4;
+    border-bottom:1px solid var(--rule-line);
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  .map-head .title{ font-weight:700; font-size:13.5px; color:#222; }
+  .map-head .title .n{ color:var(--brand-maroon); margin-right:6px; }
+  .map-body{ padding:14px 18px 16px; }
+  .map-body .src-line{
+    font-size:10.5px;
+    font-weight:600;
+    color:var(--brand-maroon);
+    text-transform:uppercase;
+    letter-spacing:0.3px;
+    margin-bottom:6px;
+  }
+  .map-body p{ margin:0 0 8px; font-size:12px; color:#444; line-height:1.55; }
+  .map-body p:last-child{ margin-bottom:0; }
+  .map-body code{
+    background:#F1EEE8;
+    padding:1px 5px;
+    border-radius:4px;
+    font-size:11px;
+  }
+
+  /* reconciliation bars */
+  .recon{ margin-top:12px; display:flex; flex-direction:column; gap:10px; }
+  .recon-row{ display:flex; align-items:center; gap:10px; }
+  .recon-label{ width:190px; font-size:10.5px; color:#555; font-weight:600; flex-shrink:0; }
+  .recon-bars{ flex:1; display:flex; flex-direction:column; gap:3px; }
+  .recon-bar-track{ position:relative; height:13px; background:#EFEBE3; border-radius:4px; overflow:hidden;}
+  .recon-bar-fill{ position:absolute; top:0; left:0; height:100%; border-radius:4px; }
+  .recon-bar-fill.calc{ background:var(--brand-maroon); }
+  .recon-bar-fill.ref{ background:var(--p-200); }
+  .recon-vals{ display:flex; justify-content:space-between; font-size:9.5px; color:#777; }
+  .recon-diff{ font-size:10.5px; font-weight:700; min-width:64px; text-align:right; }
+  .recon-diff.ok{ color:var(--ok-green); }
+  .recon-diff.gap{ color:var(--neg-value); }
+
+  /* ---------- DONUT ---------- */
+  .donut-wrap{
+    display:flex;
+    align-items:center;
+    gap:34px;
+    background:#FAF8F4;
+    border-radius:12px;
+    padding:22px 26px;
+    flex-wrap:wrap;
+  }
+  .donut{
+    width:150px;height:150px;border-radius:50%;
+    background:conic-gradient(
+      var(--ok-green) 0% 22.2%,
+      var(--warn-mustard) 22.2% 66.6%,
+      #6A3D9A 66.6% 100%
+    );
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+  }
+  .donut::after{
+    content:"";
+    width:88px;height:88px;
+    background:#FAF8F4;
+    border-radius:50%;
+    display:block;
+  }
+  .donut-center{ position:absolute; }
+  .donut-legend{ display:flex; flex-direction:column; gap:10px; font-size:12px; }
+  .donut-legend .li{ display:flex; align-items:center; gap:8px; font-weight:600; color:#333;}
+  .donut-legend .dot{ width:11px;height:11px;border-radius:50%; display:inline-block;}
+
+  /* ---------- GAP CARDS (Section 4) ---------- */
+  .gap-list{ display:flex; flex-direction:column; gap:10px; }
+  .gap-item{
+    display:flex;
+    gap:14px;
+    align-items:flex-start;
+    padding:13px 16px;
+    border-radius:8px;
+    background:#fff;
+    border:1px solid var(--rule-line);
+    border-left:5px solid var(--neg-value);
+  }
+  .gap-item .gnum{
+    background:var(--neg-value);
+    color:#fff;
+    font-weight:800;
+    font-size:11px;
+    width:22px;height:22px;
+    border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+    margin-top:1px;
+  }
+  .gap-item p{ margin:0; font-size:12.5px; color:#444; line-height:1.55; }
+  .gap-item strong{ color:#222; }
+
+  /* ---------- SCRIPT SECTION ---------- */
+  .script-card{
+    background:#1F1F1F;
+    border-radius:10px;
+    padding:20px 24px;
+    color:#EDEDED;
+  }
+  .script-card .cmd{
+    font-family:'Courier New', monospace;
+    font-size:12px;
+    background:#141414;
+    border-radius:6px;
+    padding:10px 14px;
+    margin:8px 0;
+    color:#F2C14E;
+    overflow-x:auto;
+    white-space:pre;
+  }
+  .script-card p{ font-size:12px; color:#CFCFCF; line-height:1.6; margin:0 0 6px;}
+  .out-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:10px;
+    margin-top:14px;
+  }
+  .out-chip{
+    background:#2A2A2A;
+    border-radius:6px;
+    padding:9px 12px;
+    font-size:10.5px;
+    color:#DDD;
+    text-align:center;
+    font-weight:600;
+  }
+  .out-chip.ok{ box-shadow: inset 0 0 0 1px var(--ok-green); color:#8FE3B0;}
+
+  footer{
+    padding:22px 44px 30px;
+    border-top:1px solid var(--rule-line);
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-size:10.5px;
+    color:#999;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+
+  @media (max-width:760px){
+    .kpi-strip{ grid-template-columns:repeat(2,1fr); }
+    .band{ padding:26px 22px; }
+    .content{ padding:26px 22px 40px; }
+    .recon-label{ width:120px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="band">
+    <div>
+      <p class="tag">PROTOTIPO · VISTA DEL POTENCIAL</p>
+      <h1>Loco Tequila USA — De los Datos Crudos al Reporte</h1>
+      <p>Cómo se construye hoy el Weekly Sales Report, validado contra los 8 archivos crudos</p>
+    </div>
+    <div class="logo">Loco<span>TEQUILA USA</span></div>
+  </div>
+
+  <div class="content">
+
+    <!-- KPI STRIP -->
+    <div class="kpi-strip">
+      <div class="kpi"><div class="num">8</div><div class="lbl">Fuentes crudas</div></div>
+      <div class="kpi"><div class="num">9</div><div class="lbl">Hojas del reporte</div></div>
+      <div class="kpi"><div class="num">2/7</div><div class="lbl">Tablas validadas exactas</div></div>
+      <div class="kpi"><div class="num">0</div><div class="lbl">Fórmulas en el workbook</div></div>
+      <div class="kpi"><div class="num">6</div><div class="lbl">Brechas identificadas</div></div>
+    </div>
+
+    <!-- SECTION 1 -->
+    <div class="section">
+      <div class="section-head">
+        <div class="section-num">1</div>
+        <h2>Inventario de fuentes crudas</h2>
+        <div class="sub">8 archivos · 4 orígenes de negocio</div>
+      </div>
+
+      <div class="flow">
+        <div class="flow-col">
+          <div class="flow-box" style="background:var(--c-offtrade)">Favorite Brands (TX)</div>
+          <div class="flow-box" style="background:var(--c-offtrade)">Signature / SGWS (CA)</div>
+          <div class="flow-box" style="background:var(--c-directa)">Park Street</div>
+          <div class="flow-box" style="background:var(--c-ecommerce)">Shopify + Memory</div>
+        </div>
+        <div class="flow-arrow">➜</div>
+        <div class="flow-hub">Weekly Sales Report<br><small>Sales Report Loco USA — 9 hojas, 0 fórmulas</small></div>
+      </div>
+
+      <div class="source-groups" style="margin-top:26px;">
+
+        <div>
+          <span class="group-label" style="background:var(--c-offtrade)">Favorite Brands · Distribuidor TX</span>
+          <div class="grid-src">
+            <div class="src-card">
+              <span class="grain">SKU × BODEGA</span>
+              <h4>1 - Supplier - Inventory</h4>
+              <p>Inventario disponible por SKU en las bodegas TX (MCA, HAR, LAR, CC, EP, ROS, ABQ, AUS, HOU, DAL), en <strong>botellas individuales</strong>.</p>
+            </div>
+            <div class="src-card">
+              <span class="grain">CUENTA × PRODUCTO × MES</span>
+              <h4>FB Depletion Reports 2026</h4>
+              <p>Depletions off-premise acumuladas por mes calendario. Snapshot semanal <strong>sin fecha real de transacción</strong> — se guarda con la fecha de llegada.</p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <span class="group-label" style="background:var(--c-offtrade)">Signature / SGWS · Distribuidor CA</span>
+          <div class="grid-src">
+            <div class="src-card">
+              <span class="grain">SITIO × PRODUCTO</span>
+              <h4>Inventory History</h4>
+              <p>Inventario disponible, jerárquico por sitio (Southern Glazer's North/South), en <strong>cases decimales de 6 botellas</strong>.</p>
+            </div>
+            <div class="src-card">
+              <span class="grain">CUENTA × PRODUCTO × FACTURA</span>
+              <h4>YTD by Month [Bottles, Orders]</h4>
+              <p>Depletions CA por cuenta y producto, exportado de VIPIDIG, con columnas mensuales y un acumulado YTD ya calculado por fila.</p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <span class="group-label" style="background:var(--c-directa)">Park Street · Fulfillment / Wholesale sell-in</span>
+          <div class="grid-src">
+            <div class="src-card">
+              <span class="grain">SKU × UBICACIÓN</span>
+              <h4>InventoryByLocation</h4>
+              <p>Inventario por bodega, incluyendo bodegas propias y el <strong>stock que cada vendedor carga consigo</strong> ("Salesperson Inventory").</p>
+            </div>
+            <div class="src-card">
+              <span class="grain">1 LÍNEA POR ORDEN</span>
+              <h4>SalesOrdersSummary</h4>
+              <p>Todas las órdenes de Park Street: sell-in a distribuidores, venta directa a retail/on-premise, y salidas del stock de vendedor.</p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <span class="group-label" style="background:var(--c-ecommerce)">Shopify + Memory · Ecommerce / DTC</span>
+          <div class="grid-src">
+            <div class="src-card">
+              <span class="grain">1 LÍNEA POR ORDEN</span>
+              <h4>orders_export · shopify.csv</h4>
+              <p>Órdenes de la tienda en línea loco-usa.com, export estándar de Shopify (79 columnas).</p>
+            </div>
+            <div class="src-card">
+              <span class="grain">1 LÍNEA POR ORDEN</span>
+              <h4>orders_export · memory.csv</h4>
+              <p>Mismo motor Shopify, usado para compras de <strong>"event pick-up"</strong> — el cliente recoge en un evento.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- SECTION 2 -->
+    <div class="section">
+      <div class="section-head">
+        <div class="section-num">2</div>
+        <h2>Qué contiene cada hoja del reporte</h2>
+        <div class="sub">9 hojas · Sales Report Loco USA</div>
+      </div>
+
+      <div class="grid-sheets">
+        <div class="sheet-card" style="border-top-color:var(--p-blanco)">
+          <h4>YTD Summary</h4>
+          <p>Depletions YTD por territorio (CA / TX / DTC / Ecommerce), ranking de vendedores, wholesale por distribuidor, "Direct to Retail" y ranking de producto.</p>
+        </div>
+        <div class="sheet-card" style="border-top-color:var(--p-ambar)">
+          <h4>Monthly Summary</h4>
+          <p>Las mismas métricas, mes a mes (columnas fechadas el 26), más % de crecimiento MoM.</p>
+        </div>
+        <div class="sheet-card" style="border-top-color:var(--p-aureo)">
+          <h4>Salesperson by Week</h4>
+          <p>Botellas totales por semana ISO y por vendedor: Mark, Joe Pat, Manuel, Jacky.</p>
+        </div>
+        <div class="sheet-card" style="border-top-color:var(--p-corazon)">
+          <h4>Accounts H1 / H2-2026</h4>
+          <p>Botellas por cuenta y mes, con Salesperson, Channel (On/Off Premise/DTC) y columna "Class B".</p>
+        </div>
+        <div class="sheet-card" style="border-top-color:var(--p-corazon)">
+          <h4>Account Summary Total Business</h4>
+          <p>Vida completa por cuenta: botellas y margen histórico, órdenes por año 2024–2026, última fecha de pedido.</p>
+        </div>
+        <div class="sheet-card" style="border-top-color:var(--p-200)">
+          <h4>DTC Sales by Month / Year</h4>
+          <p>Ventas directas (ecommerce + event pick-up + Melrose Gas/BML) por producto y referidor, más bloque "Ecommerce" aparte.</p>
+        </div>
+        <div class="sheet-card" style="border-top-color:var(--brand-maroon)">
+          <h4>Inventory</h4>
+          <p>Resumen de inventario disponible en 9L por producto, con las fórmulas de conversión escritas en la propia hoja.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 3 -->
+    <div class="section">
+      <div class="section-head">
+        <div class="section-num">3</div>
+        <h2>Mapeo tabla por tabla — qué tan cerca llega la simulación</h2>
+        <div class="sub">7 relaciones documentadas y probadas con números reales</div>
+      </div>
+
+      <div class="donut-wrap">
+        <div style="position:relative;">
+          <div class="donut"></div>
+        </div>
+        <div class="donut-legend">
+          <div class="li"><span class="dot" style="background:var(--ok-green)"></span> Validado exacto — 2 de 7 (Inventory, Wholesale)</div>
+          <div class="li"><span class="dot" style="background:var(--warn-mustard)"></span> Aproximado, con hueco documentado — 4 de 7</div>
+          <div class="li"><span class="dot" style="background:#6A3D9A"></span> Hipótesis abierta, sin verificar — 1 de 7 (DTC Sales)</div>
+        </div>
+      </div>
+
+      <!-- 3.1 -->
+      <div class="map-card" style="margin-top:22px;">
+        <div class="map-head">
+          <div class="title"><span class="n">3.1</span>Hoja Inventory</div>
+          <span class="badge badge-exact">✓ Validado exacto</span>
+        </div>
+        <div class="map-body">
+          <div class="src-line">Fuentes: 1-Supplier-Inventory (FB) · Inventory History (Signature) · InventoryByLocation (Park Street)</div>
+          <p>Botellas FB ÷ 12 = 9L · cases Signature/Park Street × 0.5 = 9L (× 0.5333 para 200mL). El script reproduce <strong>al centésimo</strong> los 3 renglones de control y las 7 categorías de producto.</p>
+          <p>Bug encontrado: el sufijo "NSS" (muestras no vendibles) vive en <code>product_id</code>, no en <code>sub_brand_product_name</code> — clasificar solo por el segundo mete muestras dentro del inventario vendible.</p>
+          <div class="recon">
+            <div class="recon-row">
+              <div class="recon-label">Grand Total 9L</div>
+              <div class="recon-bars">
+                <div class="recon-bar-track"><div class="recon-bar-fill calc" style="width:100%"></div></div>
+                <div class="recon-vals"><span>Calculado: 220.65</span><span>Reporte real: 220.65</span></div>
+              </div>
+              <div class="recon-diff ok">0.0%</div>
+            </div>
+            <div class="recon-row">
+              <div class="recon-label">Total CA (9L)</div>
+              <div class="recon-bars">
+                <div class="recon-bar-track"><div class="recon-bar-fill calc" style="width:100%"></div></div>
+                <div class="recon-vals"><span>Calculado: 198.23</span><span>Reporte real: 198.23</span></div>
+              </div>
+              <div class="recon-diff ok">0.0%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3.2 -->
+      <div class="map-card">
+        <div class="map-head">
+          <div class="title"><span class="n">3.2</span>Tabla "Wholesale" (YTD/Monthly Summary)</div>
+          <span class="badge badge-exact">✓ Validado exacto</span>
+        </div>
+        <div class="map-body">
+          <div class="src-line">Fuente: SalesOrdersSummary.csv · Customer Type = Wholesaler</div>
+          <p>Hallazgo más importante del ejercicio: hay que sumar la columna <code>Total</code> (línea de producto), <strong>nunca</strong> <code>Total Value</code> (se repite en cada línea de la misma orden y triplica el revenue si la orden tiene 3 productos).</p>
+          <div class="recon">
+            <div class="recon-row">
+              <div class="recon-label">Favorite Brands (Houston)</div>
+              <div class="recon-bars">
+                <div class="recon-bar-track"><div class="recon-bar-fill calc" style="width:100%"></div></div>
+                <div class="recon-vals"><span>Calculado: $28,419.80</span><span>Reporte real: $28,419.80</span></div>
+              </div>
+              <div class="recon-diff ok">0.0%</div>
+            </div>
+            <div class="recon-row">
+              <div class="recon-label">Southern Glazer's (Santa Fe)</div>
+              <div class="recon-bars">
+                <div class="recon-bar-track"><div class="recon-bar-fill calc" style="width:100%"></div></div>
+                <div class="recon-vals"><span>Calculado: $58,000</span><span>Reporte real: $58,000</span></div>
+              </div>
+              <div class="recon-diff ok">0.0%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3.3 -->
+      <div class="map-card">
+        <div class="map-head">
+          <div class="title"><span class="n">3.3</span>Tabla "Direct to Retail"</div>
+          <span class="badge badge-approx">≈ Aproximado</span>
+        </div>
+        <div class="map-body">
+          <div class="src-line">Fuente: SalesOrdersSummary.csv · Customer Type = Retailer</div>
+          <p>Melrose Gas/BML calcula ~$24,996 contra $23,152 del reporte real. Hipótesis: algunas cuentas pequeñas de asignación (Aureo/Puro Corazón) ya se cuentan en <code>Accounts H1/H2</code> y Sara las excluye aquí para no duplicar — pendiente de confirmar.</p>
+          <div class="recon">
+            <div class="recon-row">
+              <div class="recon-label">Melrose Gas / BML</div>
+              <div class="recon-bars">
+                <div class="recon-bar-track"><div class="recon-bar-fill calc" style="width:100%"></div><div class="recon-bar-fill ref" style="width:92.6%;opacity:0.55"></div></div>
+                <div class="recon-vals"><span>Calculado: $24,996</span><span>Reporte real: $23,152</span></div>
+              </div>
+              <div class="recon-diff gap">+8.0%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3.4 -->
+      <div class="map-card">
+        <div class="map-head">
+          <div class="title"><span class="n">3.4</span>Depletions California / Texas</div>
+          <span class="badge badge-approx">≈ Aproximado</span>
+        </div>
+        <div class="map-body">
+          <div class="src-line">Fuentes: YTD by Month (Signature, CA) · FB Depletion Reports (TX)</div>
+          <p>Orden de magnitud correcto, sin cuadrar al 100%. En TX, <strong>el 100% de las filas de FB son off-premise</strong> — las 63 cuentas on-premise de Texas del reporte deben salir de Park Street (vendedor directo), no de FB.</p>
+          <div class="recon">
+            <div class="recon-row">
+              <div class="recon-label">California (botellas YTD)</div>
+              <div class="recon-bars">
+                <div class="recon-bar-track"><div class="recon-bar-fill calc" style="width:100%"></div><div class="recon-bar-fill ref" style="width:85.8%;opacity:0.55"></div></div>
+                <div class="recon-vals"><span>Calculado: 635</span><span>Reporte real: 545</span></div>
+              </div>
+              <div class="recon-diff gap">+16.5%</div>
+            </div>
+            <div class="recon-row">
+              <div class="recon-label">Texas (botellas YTD, solo FB)</div>
+              <div class="recon-bars">
+                <div class="recon-bar-track"><div class="recon-bar-fill calc" style="width:100%"></div><div class="recon-bar-fill ref" style="width:91.1%;opacity:0.55"></div></div>
+                <div class="recon-vals"><span>Calculado: 350</span><span>Reporte real: 319</span></div>
+              </div>
+              <div class="recon-diff gap">+9.7%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3.5 -->
+      <div class="map-card">
+        <div class="map-head">
+          <div class="title"><span class="n">3.5</span>Salesperson by Week</div>
+          <span class="badge badge-approx">≈ Aproximado</span>
+        </div>
+        <div class="map-body">
+          <div class="src-line">Fuentes con fecha real: Signature · Park Street · Shopify/Memory</div>
+          <p>Se semanaliza bien donde hay fecha real de transacción. FB Depletion (TX) no tiene fecha real — solo acumulado mensual — así que su aporte queda como aproximación mensual, no semanal.</p>
+        </div>
+      </div>
+
+      <!-- 3.6 -->
+      <div class="map-card">
+        <div class="map-head">
+          <div class="title"><span class="n">3.6</span>DTC Sales by Month / Year</div>
+          <span class="badge badge-hyp">? Hipótesis abierta</span>
+        </div>
+        <div class="map-body">
+          <div class="src-line">Fuentes: SalesOrdersSummary (Melrose Gas) · Shopify/Memory (columna Tags)</div>
+          <p>El pie de página de la propia hoja da la pista: DTC = Melrose Gas + colección Alebrije; Ecommerce = pedidos Shopify sin <code>Tags</code>. Sin verificar con exactitud numérica. El margen (GM) no se puede calcular en ninguna hoja: <strong>ningún archivo crudo trae costo unitario (COGS)</strong>.</p>
+        </div>
+      </div>
+
+      <!-- 3.7 -->
+      <div class="map-card">
+        <div class="map-head">
+          <div class="title"><span class="n">3.7</span>Accounts H1/H2 + Account Summary</div>
+          <span class="badge badge-approx">≈ Aproximado (heurístico)</span>
+        </div>
+        <div class="map-body">
+          <div class="src-line">Unión de las 3 fuentes con nivel de cuenta</div>
+          <p>El "esqueleto" (botellas por cuenta y mes, órdenes por año, última fecha) sí se reconstruye. Las columnas <code>Salesperson</code> / <code>Channel</code> / <code>Class B</code> no vienen en ningún archivo — se infieren con palabras clave (heurístico) salvo que se cargue una tabla maestra manual.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- SECTION 4 -->
+    <div class="section">
+      <div class="section-head">
+        <div class="section-num">4</div>
+        <h2>Brechas para robustecer la skill</h2>
+        <div class="sub">6 huecos de datos identificados</div>
+      </div>
+
+      <div class="gap-list">
+        <div class="gap-item">
+          <div class="gnum">1</div>
+          <p><strong>Falta una tabla maestra cuenta → vendedor → canal.</strong> Es el hueco más grande — sin ella, Accounts H1/H2, Account Summary y parte de Salesperson by Week solo se aproximan.</p>
+        </div>
+        <div class="gap-item">
+          <div class="gnum">2</div>
+          <p><strong>Falta costo unitario (COGS) por SKU.</strong> Sin él no hay Gross Margin en ninguna hoja — solo unidades y, donde hay precio, revenue bruto.</p>
+        </div>
+        <div class="gap-item">
+          <div class="gnum">3</div>
+          <p><strong>SalesOrdersSummary: usar siempre <code>Total</code>, nunca <code>Total Value</code>.</strong> Evita triplicar revenue en órdenes multi-producto — vale la pena revisar la skill hermana de México por el mismo riesgo.</p>
+        </div>
+        <div class="gap-item">
+          <div class="gnum">4</div>
+          <p><strong>FB Depletion Reports no tiene fecha real de transacción.</strong> Solo el acumulado del mes a la fecha de descarga — hay que restar snapshots consecutivos para semanalizar.</p>
+        </div>
+        <div class="gap-item">
+          <div class="gnum">5</div>
+          <p><strong>La regla exacta de "California"/"Texas" vs. "Direct to Consumer" no cuadra al 100%.</strong> ~15% de diferencia en ambos territorios sin poder aislar la causa con los 8 archivos.</p>
+        </div>
+        <div class="gap-item">
+          <div class="gnum">6</div>
+          <p><strong>DTC vs. Ecommerce depende de la columna <code>Tags</code> capturada a mano</strong> en Shopify/Memory — cualquier inconsistencia de captura desalinea el reporte real.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 5 -->
+    <div class="section">
+      <div class="section-head">
+        <div class="section-num">5</div>
+        <h2>El script simulador</h2>
+        <div class="sub">loco_tequila_us_relationships.py</div>
+      </div>
+
+      <div class="script-card">
+        <p>Un loader por archivo crudo + una función de construcción por tabla del reporte. Imprime una reconciliación contra los valores reales del reporte del 24-ago-2026.</p>
+        <div class="cmd">python loco_tequila_us_relationships.py \
+  --data-dir "Client_Data/Loco_tequila_usa_data" \
+  --output-dir "Output/simulacion_loco_usa"</div>
+        <p>Opcional, para mejorar la atribución cuenta → vendedor → canal:</p>
+        <div class="cmd">python loco_tequila_us_relationships.py --account-map mi_mapeo_cuentas.csv</div>
+        <div class="out-grid">
+          <div class="out-chip ok">inventory.csv ✓ exacto</div>
+          <div class="out-chip ok">wholesale.csv ✓ exacto</div>
+          <div class="out-chip">direct_to_retail.csv</div>
+          <div class="out-chip">depletions_by_territory.json</div>
+          <div class="out-chip">dtc_ecommerce_split.json</div>
+          <div class="out-chip">salesperson_by_week.csv</div>
+          <div class="out-chip">accounts_summary.csv</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    <span>Elaborado a partir de 8 archivos crudos de Client_Data/Loco_tequila_usa_data · Ver <code>loco_tequila_us_relationships.md</code> para el detalle completo</span>
+    <span>Prototipo interno — no es el reporte final para el cliente</span>
+  </footer>
+
+</div>
+</body>
+</html>

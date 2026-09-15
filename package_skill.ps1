@@ -48,6 +48,10 @@ if (-not (Test-Path $OutputDir)) {
 $ExcludeDirs = @(
     "Client_Data",
     "Client_Documents",
+    # Client_Reports guarda los requerimientos y blueprints que el cliente nos
+    # entregó (.docx, .pptx, maquetas .html). Son confidenciales del cliente y no
+    # deben viajar en el paquete distribuible — .gitignore ya los excluye del repo.
+    "Client_Reports",
     ".agents",
     "Examples",
     "Output",
@@ -153,6 +157,17 @@ try {
     }
     if ($badPaths) {
         throw "Entradas con rutas no portables: $($badPaths -join ', ')"
+    }
+
+    # El instalador de skills rechaza el paquete COMPLETO ("Zip file contains
+    # path with invalid characters") si alguna ruta trae algo fuera de
+    # [A-Za-z0-9._/-]: basta un espacio, un apóstrofo, una coma o un corchete.
+    # Los nombres que entrega el cliente los traen; los archivos demo que SÍ
+    # viajan aquí van con guiones, y los lectores hacen match tolerante a la
+    # puntuación (ver _flexible_pattern en loco_tequila_us_relationships.py).
+    $invalidChars = $entries | Where-Object { $_ -notmatch '^[A-Za-z0-9._/-]+$' }
+    if ($invalidChars) {
+        throw "El instalador rechaza estas rutas por sus caracteres (solo se admite A-Z a-z 0-9 . _ - /): $($invalidChars -join ', ')"
     }
 
     $clashes = $entries | Group-Object { $_.ToLowerInvariant() } | Where-Object { $_.Count -gt 1 }

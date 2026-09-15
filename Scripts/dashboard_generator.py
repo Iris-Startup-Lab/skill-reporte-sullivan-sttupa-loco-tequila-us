@@ -47,6 +47,7 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
+import i18n
 
 # ==============================================================================
 # 0. RUTAS DE MARCA (ajustar si el script se mueve de carpeta)
@@ -146,6 +147,16 @@ TOKENS = {
 
 # Paleta de las 9 categorías finales DTC (orden fijo — Bloque A, "regla de oro":
 # el mismo color en toda gráfica/tabla). Variaciones tonales sobre navy/tan.
+# Destino único de todo renglón que la cascada no puede clasificar (decisión de
+# negocio del cliente, 2026-09-02): una orden de canal Club que no nombra ni el
+# programa Estate ni el Founder's, y cualquier renglón de canal desconocido, van
+# a UNA sola categoría visible "No clasificados". Antes eran dos buckets
+# distintos ("Club - Review (Admin/POS)" y "Unassigned"), lo que obligaba al
+# lector a sumar dos filas para saber cuánto quedaba sin asignar.
+# El motivo concreto de cada renglón se conserva en la columna
+# 'Unclassified Reason' para la tabla de auditoría, sin partir la categoría.
+UNCLASSIFIED = "Unclassified"
+
 CATEGORY_COLORS = {
     "Telesales":          "#003057",
     "Event":               "#2C4F73",
@@ -156,13 +167,17 @@ CATEGORY_COLORS = {
     "Tasting Room":        "#C79F6C",
     "Estate Club":         "#8C2F2F",
     "Founder's Club":      "#451B0F",
-    "Club - Review (Admin/POS)": "#656565",
+    UNCLASSIFIED:          "#656565",
 }
 CATEGORY_ORDER = list(CATEGORY_COLORS.keys())
 
-# Filas que NO forman parte de la cascada de 9 prioridades: existen solo para que
-# el total cuadre al centavo y para que nada quede fuera del reporte en silencio.
-DIAGNOSTIC_CATEGORIES = ("Club - Review (Admin/POS)", "Unassigned")
+# Fila que NO forma parte de la cascada de 9 prioridades: existe para que el
+# total cuadre al centavo y para que nada quede fuera del reporte en silencio.
+DIAGNOSTIC_CATEGORIES = (UNCLASSIFIED,)
+
+# Motivos por los que un renglón cae en "No clasificados" (para la auditoría).
+REASON_CLUB_NO_PROGRAM = "Club channel, no program named"
+REASON_UNKNOWN_CHANNEL = "Channel not recognized by the cascade"
 
 # Glosario de las 9 categorías finales — un lector directivo no tiene por qué
 # adivinar qué distingue "Telesales" de "Tock". Se muestra en la pestaña A.
@@ -176,9 +191,10 @@ CATEGORY_GLOSSARY = [
     ("Tasting Room", "Any POS order rung up on site at the estate."),
     ("Estate Club", "Club shipment on an Estate program (4 or 6 bottle)."),
     ("Founder's Club", "Club shipment on a Founder's program (3 bottle to double case)."),
-    ("Club - Review (Admin/POS)",
-     "Diagnostic, not a 10th category: Club-channel lines that name neither program "
-     "(typically admin or POS orders flagged as Club). Kept visible so the total reconciles."),
+    (UNCLASSIFIED,
+     "Diagnostic, not a 10th category: everything the cascade cannot assign — Club-channel "
+     "lines naming neither program (typically admin or POS orders flagged as Club) and lines "
+     "whose channel is not recognized. Kept visible so the total reconciles to the cent."),
 ]
 
 CLUB_PACKAGE_COLORS = {
@@ -245,14 +261,22 @@ def classify_orders(df: pd.DataFrame) -> pd.DataFrame:
     club_name = club_title + " " + club_package
     cond_estate = is_club & club_name.str.contains("Estate", case=False, regex=False)
     cond_founders = is_club & ~cond_estate & club_name.str.contains("Founder", case=False, regex=False)
-    cond_club_review = is_club & ~cond_estate & ~cond_founders
+    cond_club_unclassified = is_club & ~cond_estate & ~cond_founders
 
     conditions = [cond_event, cond_corp, cond_ff, cond_tele, cond_tock, cond_web,
-                  cond_pos, cond_estate, cond_founders, cond_club_review]
+                  cond_pos, cond_estate, cond_founders, cond_club_unclassified]
     choices = ["Event", "Corporate", "Friends & Family", "Telesales", "Tock",
                "Web / Ecommerce", "Tasting Room", "Estate Club", "Founder's Club",
-               "Club - Review (Admin/POS)"]
-    d["Final Category"] = np.select(conditions, choices, default="Unassigned")
+               UNCLASSIFIED]
+    d["Final Category"] = np.select(conditions, choices, default=UNCLASSIFIED)
+
+    # El motivo se guarda aparte: la categoría es una sola ("No clasificados"),
+    # pero la tabla de auditoría necesita distinguir por qué cayó cada renglón.
+    d["Unclassified Reason"] = np.select(
+        [cond_club_unclassified, d["Final Category"] == UNCLASSIFIED],
+        [REASON_CLUB_NO_PROGRAM, REASON_UNKNOWN_CHANNEL],
+        default="",
+    )
 
     def package_group(pkg: str) -> str:
         p = pkg.lower()
@@ -417,12 +441,11 @@ def financial_money_col(fin):
 
 def category_order_for(d: pd.DataFrame) -> list:
     """
-    CATEGORY_ORDER más 'Unassigned' cuando hay renglones sin clasificar: si se
-    descartan (reindex solo sobre las 10 conocidas) el total subcuenta en
-    silencio y la reconciliación falla sin diagnóstico.
+    Orden de categorías para el reindex. UNCLASSIFIED ya está en CATEGORY_ORDER,
+    así que ningún renglón puede quedar fuera: antes 'Unassigned' vivía aparte y
+    si se descartaba, el total subcontaba en silencio y la reconciliación fallaba
+    sin diagnóstico.
     """
-    if (d["Final Category"] == "Unassigned").any():
-        return CATEGORY_ORDER + ["Unassigned"]
     return list(CATEGORY_ORDER)
 
 
@@ -492,9 +515,11 @@ def build_vista_b(d: pd.DataFrame) -> dict:
     estate_total = float(club_df[club_df["Final Category"] == "Estate Club"][amt_col].sum())
     founders_total = float(club_df[club_df["Final Category"] == "Founder's Club"][amt_col].sum())
 
-    # Casos de revisión (Admin/POS Marked as Club): una fila POR ORDEN, con el
+    # Tabla de auditoría de "No clasificados": una fila POR ORDEN, con el
     # SubTotal agregado a nivel orden (antes salía una fila por línea de ítem).
-    review = d[d["Final Category"] == "Club - Review (Admin/POS)"]
+    # Incluye AMBOS motivos (Club sin programa y canal no reconocido) porque
+    # ahora es una sola categoría; la columna 'Reason' los distingue.
+    review = d[d["Final Category"] == UNCLASSIFIED]
     review_records = []
     review_total = 0.0
     if not review.empty:
@@ -504,15 +529,17 @@ def build_vista_b(d: pd.DataFrame) -> dict:
             agg["Order Submitted Date"] = "first"
         if "Channel" in review.columns:
             agg["Channel"] = "first"
-        for extra in ("Club Title", "Club Package"):
+        for extra in ("Club Title", "Club Package", "Unclassified Reason"):
             if extra in review.columns:
                 agg[extra] = "first"
         review_records = review.groupby(order_col, as_index=False).agg(agg).rename(
-            columns={order_col: "Order Number", amt_col: "SubTotal"}
+            columns={order_col: "Order Number", amt_col: "SubTotal",
+                     "Unclassified Reason": "Reason"}
         )
         review_records = review_records[
             [c for c in ("Order Number", "Order Submitted Date", "Channel",
-                         "Club Title", "Club Package", "SubTotal") if c in review_records.columns]
+                         "Club Title", "Club Package", "Reason", "SubTotal")
+             if c in review_records.columns]
         ]
         review_records = review_records.sort_values("SubTotal", ascending=False)
         review_total = round(float(review_records["SubTotal"].sum()), 2)
@@ -1556,18 +1583,20 @@ function openMapModal() {{
   try {{
     var diagNote = document.getElementById('diagnostics-note');
     var dg = d.diagnostics || {{}};
-    if (diagNote && ((dg.unassigned_rows || 0) + (dg.review_rows || 0)) > 0) {{
+    if (diagNote && (dg.unclassified_rows || 0) > 0) {{
       var parts = [];
-      if (dg.unassigned_rows) {{
-        parts.push(dg.unassigned_rows.toLocaleString('en-US') + ' unclassified line(s) ('
-          + fmtMoney(dg.unassigned_subtotal) + ')');
+      if (dg.club_no_program_rows) {{
+        parts.push(dg.club_no_program_rows.toLocaleString('en-US') + ' Club line(s) with no program named ('
+          + fmtMoney(dg.club_no_program_subtotal) + ')');
       }}
-      if (dg.review_rows) {{
-        parts.push(dg.review_rows.toLocaleString('en-US') + ' Club line(s) flagged for review ('
-          + fmtMoney(dg.review_subtotal) + ')');
+      if (dg.unknown_channel_rows) {{
+        parts.push(dg.unknown_channel_rows.toLocaleString('en-US') + ' line(s) with an unrecognized channel ('
+          + fmtMoney(dg.unknown_channel_subtotal) + ')');
       }}
-      diagNote.textContent = 'Diagnostics: ' + parts.join(' · ')
-        + '. Included in Total DTC so the reconciliation stays exact — they are not part of the 9 categories.';
+      diagNote.textContent = 'Unclassified: ' + dg.unclassified_rows.toLocaleString('en-US')
+        + ' line(s) totalling ' + fmtMoney(dg.unclassified_subtotal)
+        + (parts.length ? ' — ' + parts.join(' · ') : '')
+        + '. Counted in Total DTC so the reconciliation stays exact to the cent; not one of the 9 categories.';
       diagNote.className = 'recon-note warn';
     }}
   }} catch (e) {{ console.error('Error rendering diagnostics note:', e); }}
@@ -1838,22 +1867,33 @@ def get_chart_js_inline() -> str:
 # 6. MAIN
 # ==============================================================================
 def generate(order_sales_path: str, financial_report_path: str | None,
-             output_path: str, title: str, period_label: str):
+             output_path: str, title: str, period_label: str,
+             lang: str = i18n.DEFAULT_LANG):
     df = load_data_file(order_sales_path)
     df = classify_orders(df)
     amt_col = money_col(df)
     df[amt_col] = coerce_money(df[amt_col])
 
+    # Un solo bucket "No clasificados", desglosado por MOTIVO para el diagnóstico.
+    unc = df["Final Category"] == UNCLASSIFIED
+    reason = df.get("Unclassified Reason", pd.Series("", index=df.index)).fillna("")
+    club_no_prog = unc & (reason == REASON_CLUB_NO_PROGRAM)
+    bad_channel = unc & (reason == REASON_UNKNOWN_CHANNEL)
     diagnostics = {
-        "unassigned_rows": int((df["Final Category"] == "Unassigned").sum()),
-        "unassigned_subtotal": round(float(df.loc[df["Final Category"] == "Unassigned", amt_col].sum()), 2),
-        "review_rows": int((df["Final Category"] == "Club - Review (Admin/POS)").sum()),
-        "review_subtotal": round(float(df.loc[df["Final Category"] == "Club - Review (Admin/POS)", amt_col].sum()), 2),
+        "unclassified_rows": int(unc.sum()),
+        "unclassified_subtotal": round(float(df.loc[unc, amt_col].sum()), 2),
+        "club_no_program_rows": int(club_no_prog.sum()),
+        "club_no_program_subtotal": round(float(df.loc[club_no_prog, amt_col].sum()), 2),
+        "unknown_channel_rows": int(bad_channel.sum()),
+        "unknown_channel_subtotal": round(float(df.loc[bad_channel, amt_col].sum()), 2),
     }
-    if diagnostics["unassigned_rows"]:
-        warn(f"{diagnostics['unassigned_rows']} renglones quedaron sin clasificar "
-             f"(${diagnostics['unassigned_subtotal']:,.2f}). Se incluyen como 'Unassigned' para "
-             "que el total cuadre; revisa Channel / Club Title en el origen.")
+    if diagnostics["unclassified_rows"]:
+        warn(f"{diagnostics['unclassified_rows']} renglones cayeron en '{UNCLASSIFIED}' "
+             f"(${diagnostics['unclassified_subtotal']:,.2f}): "
+             f"{diagnostics['club_no_program_rows']} de Club sin programa, "
+             f"{diagnostics['unknown_channel_rows']} con canal no reconocido. "
+             "Se incluyen en el Total DTC para que el cuadre sea exacto; "
+             "revisa Channel / Club Title / Club Package en el origen.")
 
     vista_a = build_vista_a(df)
     vista_b = build_vista_b(df)
@@ -1891,6 +1931,9 @@ def generate(order_sales_path: str, financial_report_path: str | None,
 
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
+    # El HTML lleva LOS DOS idiomas y un selector ES/EN, así que un solo
+    # archivo sirve a los dos públicos. `lang` decide con cuál abre.
+    html = i18n.inject(html, lang)
     out.write_text(html, encoding="utf-8")
     print(f"Dashboard generado: {out}")
     print(f"  Total DTC ({amt_col}): ${vista_a['total_dtc']:,.2f}")

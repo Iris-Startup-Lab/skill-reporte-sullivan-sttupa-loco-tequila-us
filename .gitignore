@@ -12,6 +12,8 @@
 # Carpetas a evitar
 Client_Documents/
 Client_Data/
+Client_Reports/
 Output/
 .agents/
 **/__pycache__/
+references_to_delete/
