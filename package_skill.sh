@@ -85,6 +85,7 @@ exclude_dirs = {
     # entregó (.docx, .pptx, maquetas .html). Son confidenciales del cliente y no
     # deben viajar en el paquete distribuible — .gitignore ya los excluye del repo.
     "Client_Reports",
+    "references_to_delete",
     ".agents",
     "Examples",
     "Output",
