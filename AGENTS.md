@@ -119,6 +119,11 @@ Todo agente que atienda una solicitud de generación de reportes en este reposit
    En todos los reportes (HTML y PDF, para todas las marcas), **todas las gráficas de barras deben estar ordenadas estrictamente de mayor a menor (orden descendente por importe o volumen)**.
 7. **🎯 Presentación Ejecutiva:**
    Cero menciones de rutas internas de desarrollo (`Designs/...md`) en la interfaz final entregada al cliente.
+8. **🔷 Gobernanza de Gráficas Circulares y Mix de Categorías (Heurística Dona vs. Voronoi):**
+   En todos los reportes (HTML y PDF, para todas las marcas actuales y futuros desarrollos de Sttupa), al graficar participación o mezcla de categorías, SKUs o canales:
+   * Evaluar elementos con valor positivo: `n_items = len([x for x in datos if x.valor > 0])`.
+   * **Si `n_items <= 3`:** Generar **Dona (*Doughnut Chart*)**, con centro vacío y KPI global en texto grande con subtítulo descriptivo.
+   * **Si `n_items > 3`:** Generar **Treemap de Voronoi (*Power Diagram* circular)**, colocando el KPI global en la parte superior como encabezado (`Total de ventas: $X` o `Total: X btl/9L`), dejando el 100% del área circular para las celdas poligonales con contraste dinámico de texto ($\text{Luminancia} = 0.299R + 0.587G + 0.114B$) y umbral del 5% para rotulado de nombre y porcentaje.
 
 ---
 

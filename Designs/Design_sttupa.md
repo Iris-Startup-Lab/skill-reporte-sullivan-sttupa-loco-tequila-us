@@ -175,9 +175,18 @@ Tarifa Promedio (ADR, USD) $
 
 ## 6. Especificación de GRÁFICAS
 
-### 6.1 Resumen (portada) — ≤4-5 categorías → **Dona** permitida
-- Segmentos = 5 habitaciones (§2.2), colores en orden fijo.
-- Centro: `${Total}` + `Total de ventas`.
+### 6.1 Resumen y Mezcla de Habitaciones — Heurística Dona vs. Treemap de Voronoi
+- **Regla de Decisión Normativa (Data Storytelling):**
+  - Contar elementos con valor > 0: `n_items = len([x for x in datos if x.valor > 0])`.
+  - **Si `n_items <= 3`:**
+    - **Gráfico:** **Dona (*Doughnut Chart*)**, agujero ~55%.
+    - **Composición:** Centro vacío con el KPI global (**Total de ventas / noches**) en titular y subtítulo (`Total de ventas` / `Total sales`). Arcos limpios y anchos.
+  - **Si `n_items > 3` (ej. las 5 habitaciones Pa Vinea, Loco, Vineyard, Sanctuary, Poetry):**
+    - **Gráfico:** **Treemap de Voronoi (*Power Diagram* circular)**.
+    - **Composición:** El KPI global **se ubica en la parte superior** como encabezado (`Total de ventas: $X` o `Total: X noches`), dejando el 100% del área circular para las celdas orgánicas de Voronoi.
+    - **Contraste dinámico celular:** $\text{Luminancia} = 0.299R + 0.587G + 0.114B$. Si $< 0.55$: texto blanco (`#FFFFFF`); si $\ge 0.55$: texto oscuro (`#3A3A3A`).
+    - **Umbral de rotulado:** Celdas $\ge 5\%$ del total muestran nombre de habitación y porcentaje; celdas $< 5\%$ muestran únicamente porcentaje.
+- Segmentos / celdas = colores §2.2 en orden descendente estricto por importe o volumen.
 - Leyenda derecha: bullet · nombre · `$valor` · píldora con `%` (tono copper `#C7AC96`).
 
 ### 6.2 Barras apiladas + línea (histórico mensual)

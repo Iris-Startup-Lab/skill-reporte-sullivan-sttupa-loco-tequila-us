@@ -211,11 +211,19 @@ aparecen literalmente como `$NaN` / `NaN%` en el original — replicar solo si s
 
 ## 6. Especificación de GRÁFICAS
 
-### 6.1 Dona (Resumen de ventas) — págs. 1, 2
-- Tipo: **donut**, agujero ~55%.
-- Segmentos = 6 productos, colores §2.2, en orden.
-- Centro: `${Total}` grande + `Total de ventas`.
-- Leyenda a la derecha: bullet de color · nombre · `$valor` · píldora rosada con `%`.
+### 6.1 Mezcla de Producto y Resumen de Ventas — Heurística Dona vs. Treemap de Voronoi
+- **Regla de Decisión (Data Storytelling):**
+  - Contar elementos con valor > 0: `n_items = len([x for x in datos if x.valor > 0])`.
+  - **Si `n_items <= 3`:**
+    - **Gráfico:** **Dona (*Doughnut Chart*)**, agujero ~55%.
+    - **Composición:** Centro vacío con el KPI global (**Total de ventas / volumen**) en titular destacado y subtítulo descriptivo (`Total de ventas` / `Total sales`). Arcos anchos y claros.
+  - **Si `n_items > 3` (ej. los 6 productos de Loco Tequila):**
+    - **Gráfico:** **Treemap de Voronoi (*Power Diagram* circular)**.
+    - **Composición:** El KPI global **se ubica en la parte superior** como encabezado (`Total de ventas: $X` o `Total: X btl/9L`), dejando el 100% del área circular para las celdas poligonales.
+    - **Contraste dinámico celular:** $\text{Luminancia} = 0.299R + 0.587G + 0.114B$. Si $< 0.55$: texto blanco (`#FFFFFF`); si $\ge 0.55$: texto oscuro (`#3A3A3A`).
+    - **Umbral de rotulado:** Celdas $\ge 5\%$ del total muestran nombre y porcentaje; celdas $< 5\%$ muestran únicamente porcentaje.
+- Segmentos / celdas = colores §2.2 en orden descendente estricto por volumen.
+- Leyenda a la derecha: bullet de color · nombre · `$valor` o volumen · porcentaje con `%`.
 
 ### 6.2 Barras apiladas + línea (Histórico mensual) — pág. 3
 - Eje X: meses. Barras apiladas por **producto** (§2.2).

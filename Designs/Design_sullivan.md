@@ -181,11 +181,16 @@ Average Price per Bottle $
 
 ## 6. Especificación de GRÁFICAS
 
-### 6.1 Resumen (portada) — >4 SKUs → evitar dona, usar **treemap o barras horizontales**
-Con 6 SKU tentativos se recomienda **barras horizontales** en vez de dona (regla del
-Bloque E de `knowledge_for_another_reports.md`: dona solo tolera 3-4 categorías).
-- Barras = 6 SKU (§2.2), colores en orden fijo, etiqueta `$valor` y `%` al final de cada barra.
-- Total agregado en encabezado: `${Total} · Total Net Sales`.
+### 6.1 Resumen y Distribución de Mezcla — Heurística Dona vs. Treemap de Voronoi
+- **Regla de Decisión Normativa (Data Storytelling):**
+  - Contar elementos con valor > 0: `n_items = len([x for x in datos if x.valor > 0])`.
+  - **Si `n_items <= 3`:**
+    - **Gráfico:** **Dona (*Doughnut Chart*)**.
+    - **Composición:** Centro vacío con el KPI global (**Total Net Sales / volumen**) en texto grande y subtítulo. Arcos anchos y fáciles de distinguir.
+  - **Si `n_items > 3` (ej. los 6 SKU tentativos o los 9 canales DTC):**
+    - **Gráfico:** **Treemap de Voronoi (*Power Diagram* circular)** o **barras horizontales descendentes**.
+    - **Composición:** El KPI global **se ubica en la parte superior** como encabezado (`${Total} · Total Net Sales`), dejando el 100% del área circular para las celdas de Voronoi con contraste dinámico ($\text{Luminancia} = 0.299R + 0.587G + 0.114B$) y umbral del 5% para rotulado de categoría y porcentaje.
+- Respetar paleta cromática oficial (§2.2 / §2.3) y orden estrictamente descendente.
 
 ### 6.2 Barras apiladas + línea (histórico mensual)
 - Eje X: meses. Barras apiladas por SKU (§2.2).

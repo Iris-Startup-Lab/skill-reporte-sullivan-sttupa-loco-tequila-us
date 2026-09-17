@@ -35,6 +35,7 @@ de tema por cada llamada.
 
 from __future__ import annotations
 
+import io
 import math
 import sys
 from pathlib import Path
@@ -519,6 +520,246 @@ def draw_horizontal_bars(c, labels, values, color_map, x, y, width, row_h=16,
         c.drawString(x + label_w + bar_area_w + 6, row_y - row_h + baseline,
                      value_fmt(val))
     return y - len(labels) * row_h - 10
+
+
+# ==============================================================================
+# GRÁFICAS CIRCULARES Y TREEMAP DE VORONOI (HEURÍSTICA: <=3 DONA, >3 VORONOI)
+# ==============================================================================
+def _to_rgb_tuple(col) -> tuple[float, float, float]:
+    """Convierte colores de ReportLab, hex strings o tuplas a (r, g, b) en 0.0..1.0."""
+    if hasattr(col, "red") and hasattr(col, "green") and hasattr(col, "blue"):
+        return (float(col.red), float(col.green), float(col.blue))
+    if isinstance(col, str):
+        c = col.lstrip("#")
+        if len(c) == 6:
+            return (int(c[0:2], 16) / 255.0, int(c[2:4], 16) / 255.0, int(c[4:6], 16) / 255.0)
+    if isinstance(col, (tuple, list)) and len(col) >= 3:
+        if max(col[:3]) > 1.0:
+            return (col[0] / 255.0, col[1] / 255.0, col[2] / 255.0)
+        return (float(col[0]), float(col[1]), float(col[2]))
+    return (0.5, 0.5, 0.5)
+
+
+def _clip_halfplane(poly, a, b, c):
+    if not poly:
+        return poly
+    res, n = [], len(poly)
+    for i in range(n):
+        cur, nxt = poly[i], poly[(i + 1) % n]
+        cur_in = (a * cur[0] + b * cur[1]) <= c + 1e-12
+        nxt_in = (a * nxt[0] + b * nxt[1]) <= c + 1e-12
+        if cur_in:
+            res.append(cur)
+        if cur_in != nxt_in:
+            dx, dy = nxt[0] - cur[0], nxt[1] - cur[1]
+            denom = a * dx + b * dy
+            if abs(denom) > 1e-15:
+                t = (c - (a * cur[0] + b * cur[1])) / denom
+                res.append((cur[0] + t * dx, cur[1] + t * dy))
+    return res
+
+
+def _poly_area(poly):
+    if len(poly) < 3:
+        return 0.0
+    return abs(sum(poly[i][0] * poly[(i + 1) % len(poly)][1] - poly[(i + 1) % len(poly)][0] * poly[i][1] for i in range(len(poly)))) * 0.5
+
+
+def _poly_centroid(poly):
+    n = len(poly)
+    if n < 3:
+        return (sum(p[0] for p in poly) / max(n, 1), sum(p[1] for p in poly) / max(n, 1))
+    A = cx = cy = 0.0
+    for i in range(n):
+        x1, y1 = poly[i]
+        x2, y2 = poly[(i + 1) % n]
+        cross = x1 * y2 - x2 * y1
+        A += cross
+        cx += (x1 + x2) * cross
+        cy += (y1 + y2) * cross
+    A *= 0.5
+    return (cx / (6 * A), cy / (6 * A)) if abs(A) > 1e-15 else (0.0, 0.0)
+
+
+def _voronoi_treemap_cells(values, iters=150, adapt=0.5):
+    n = len(values)
+    if n == 0:
+        return []
+    total = sum(values) or 1.0
+    boundary = [(math.cos(2 * math.pi * k / 96), math.sin(2 * math.pi * k / 96)) for k in range(96)]
+    if n == 1:
+        return [boundary]
+    barea = _poly_area(boundary)
+    target = [v / total * barea for v in values]
+    ga = math.pi * (3 - math.sqrt(5))
+    sites = [(0.55 * math.sqrt((i + 0.5) / n) * math.cos(i * ga),
+              0.55 * math.sqrt((i + 0.5) / n) * math.sin(i * ga)) for i in range(n)]
+    weights = [0.0] * n
+
+    def get_cells(s, w):
+        c_list = []
+        for i in range(n):
+            poly = list(boundary)
+            for j in range(n):
+                if j == i:
+                    continue
+                a = 2 * (s[j][0] - s[i][0])
+                b = 2 * (s[j][1] - s[i][1])
+                c = (s[j][0]**2 + s[j][1]**2 - w[j]) - (s[i][0]**2 + s[i][1]**2 - w[i])
+                poly = _clip_halfplane(poly, a, b, c)
+                if not poly:
+                    break
+            c_list.append(poly)
+        return c_list
+
+    cells = get_cells(sites, weights)
+    for _ in range(iters):
+        for i in range(n):
+            if _poly_area(cells[i]) > 1e-9:
+                sites[i] = _poly_centroid(cells[i])
+        cells = get_cells(sites, weights)
+        areas = [_poly_area(c) for c in cells]
+        for i in range(n):
+            weights[i] += (target[i] - areas[i]) * adapt
+        wmin = min(weights) if weights else 0.0
+        weights = [w - wmin for w in weights]
+        cells = get_cells(sites, weights)
+    return cells
+
+
+def make_voronoi_chart(labels, values, colors_list, total_label="$1,250,000",
+                       sub_label="Total sales", size=(3.2, 2.9), dpi=160) -> bytes:
+    """
+    Treemap de Voronoi (Power Diagram circular).
+    El KPI global se ubica en la parte superior como encabezado, dejando el 100%
+    del área circular para los polígonos celulares.
+    """
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as mpatches
+
+    fig, ax = plt.subplots(figsize=size)
+    fig.patch.set_alpha(0)
+    rgbs = [_to_rgb_tuple(c) for c in colors_list]
+    cells = _voronoi_treemap_cells(values)
+    tot_area = sum(_poly_area(c) for c in cells) or 1.0
+
+    for lbl, rgb, cell in zip(labels, rgbs, cells):
+        if len(cell) < 3:
+            continue
+        ax.add_patch(mpatches.Polygon(cell, closed=True, facecolor=rgb, edgecolor="white", linewidth=1.5))
+        cx, cy = _poly_centroid(cell)
+        frac = _poly_area(cell) / tot_area
+        lum = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]
+        txtcolor = "white" if lum < 0.55 else "#3A3A3A"
+        pct_str = f"{frac * 100:.0f}%"
+        if frac >= 0.05:
+            ax.text(cx, cy + 0.06, str(lbl), ha="center", va="center", fontsize=7.5, fontweight="bold", color=txtcolor)
+            ax.text(cx, cy - 0.08, pct_str, ha="center", va="center", fontsize=8.5, fontweight="bold", color=txtcolor)
+        else:
+            ax.text(cx, cy, pct_str, ha="center", va="center", fontsize=6.5, color=txtcolor)
+
+    # Encabezado con el KPI global arriba
+    ax.text(0, 1.18, str(total_label), ha="center", va="center", fontsize=11, fontweight="bold", color="#111111")
+    ax.text(0, 1.06, _L(str(sub_label)), ha="center", va="center", fontsize=7.5, color="#666666")
+    ax.set_xlim(-1.05, 1.05)
+    ax.set_ylim(-1.08, 1.28)
+    ax.set_aspect("equal")
+    ax.axis("off")
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=dpi, bbox_inches="tight", transparent=True)
+    plt.close(fig)
+    return buf.getvalue()
+
+
+def make_doughnut_chart(labels, values, colors_list, total_label="$1,250,000",
+                        sub_label="Total sales", size=(3.2, 2.9), dpi=160) -> bytes:
+    """
+    Gráfica de dona (Doughnut Chart) tradicional cuando n_items <= 3.
+    El KPI global va en el centro vacío con su subtítulo.
+    """
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(figsize=size)
+    fig.patch.set_alpha(0)
+    rgbs = [_to_rgb_tuple(c) for c in colors_list]
+    tot = sum(values) or 1.0
+
+    wedges, _ = ax.pie(
+        values,
+        colors=rgbs,
+        startangle=90,
+        counterclock=False,
+        wedgeprops=dict(width=0.45, edgecolor="white", linewidth=1.5),
+    )
+
+    # Etiquetas en los sectores
+    for w, lbl, val, rgb in zip(wedges, labels, values, rgbs):
+        ang = (w.theta2 + w.theta1) / 2.0
+        r_mid = 0.77
+        rad = math.radians(ang)
+        x_lbl = r_mid * math.cos(rad)
+        y_lbl = r_mid * math.sin(rad)
+        pct = (val / tot) * 100.0
+        lum = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]
+        txtcolor = "white" if lum < 0.55 else "#3A3A3A"
+        ax.text(x_lbl, y_lbl + 0.04, str(lbl), ha="center", va="center", fontsize=7.5, fontweight="bold", color=txtcolor)
+        ax.text(x_lbl, y_lbl - 0.06, f"{pct:.0f}%", ha="center", va="center", fontsize=8.0, fontweight="bold", color=txtcolor)
+
+    # Centro vacío: Total y subtítulo
+    ax.text(0, 0.05, str(total_label), ha="center", va="center", fontsize=11, fontweight="bold", color="#111111")
+    ax.text(0, -0.09, _L(str(sub_label)), ha="center", va="center", fontsize=7.5, color="#666666")
+    ax.set_aspect("equal")
+    ax.axis("off")
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=dpi, bbox_inches="tight", transparent=True)
+    plt.close(fig)
+    return buf.getvalue()
+
+
+def make_distribution_chart(labels, values, colors_list, total_label,
+                            sub_label="Total sales", size=(3.2, 2.9), dpi=160) -> bytes:
+    """
+    Despachador con la regla de decisión:
+      - Si n_items <= 3: Dona tradicional con KPI al centro.
+      - Si n_items > 3: Treemap de Voronoi (Power Diagram) con KPI arriba.
+    """
+    active = [(l, float(v), c) for l, v, c in zip(labels, values, colors_list)
+              if v is not None and not pd.isna(v) and float(v) > 0]
+    if not active:
+        # Fallback si todo es 0
+        return make_doughnut_chart(["—"], [1.0], [ACCENT], total_label=total_label,
+                                   sub_label=sub_label, size=size, dpi=dpi)
+    act_labels = [a[0] for a in active]
+    act_vals = [a[1] for a in active]
+    act_cols = [a[2] for a in active]
+
+    if len(active) <= 3:
+        return make_doughnut_chart(act_labels, act_vals, act_cols,
+                                   total_label=total_label, sub_label=sub_label,
+                                   size=size, dpi=dpi)
+    return make_voronoi_chart(act_labels, act_vals, act_cols,
+                              total_label=total_label, sub_label=sub_label,
+                              size=size, dpi=dpi)
+
+
+def draw_distribution_chart(c, labels, values, colors_list, x, y, width, height,
+                            total_label, sub_label="Total sales"):
+    """
+    Inserta el gráfico condicional (Dona o Voronoi) directamente en el canvas
+    de ReportLab respetando el bounding box.
+    """
+    from reportlab.lib.utils import ImageReader
+    png_bytes = make_distribution_chart(labels, values, colors_list, total_label, sub_label)
+    img_reader = ImageReader(io.BytesIO(png_bytes))
+    c.drawImage(img_reader, x, y - height, width=width, height=height, mask="auto",
+                preserveAspectRatio=True, anchor="c")
+    return y - height - 10
 
 
 def draw_table(c, headers, rows, x, y, col_widths, row_h=16, total_row_idx=None,

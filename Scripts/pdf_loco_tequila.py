@@ -49,6 +49,7 @@ from pdf_common import (  # noqa: E402
     auto_row_h,
     blank_if_missing,
     center_block,
+    draw_distribution_chart,
     draw_empty_state,
     draw_header_band,
     draw_horizontal_bars,
@@ -358,14 +359,30 @@ def page_mix_and_reps(c, data, page_num):
     reps = data.get("reps", [])
 
     y = draw_section_title(c, "Bottles by SKU", y)
-    reserve = (len(reps) + 4) * 15 + 120
-    row_h = auto_row_h(max(1, len(sku)), y, 15, 26, reserve=reserve)
+    reserve = (len(reps) + 4) * 15 + 100
     if sku:
-        y = draw_horizontal_bars(c, [s["sku"] for s in sku],
-                                 [s["bottles"] for s in sku],
-                                 {s["sku"]: _product_color(s["sku"]) for s in sku},
-                                 MARGIN, y, CONTENT_W, row_h=row_h,
-                                 value_fmt=lambda v: fmt_num(v) + " btl")
+        tot_bottles = sum(s["bottles"] or 0 for s in sku)
+        chart_w = 2.7 * inch
+        chart_h = 2.1 * inch
+        bars_w = CONTENT_W - chart_w - 0.25 * inch
+        bars_x = MARGIN + chart_w + 0.25 * inch
+
+        sku_labels = [s["sku"] for s in sku]
+        sku_vals = [s["bottles"] for s in sku]
+        sku_cols = [_product_color(s["sku"]) for s in sku]
+
+        # Gráfica de distribución circular (Voronoi si >3 categorías, Dona si <=3)
+        draw_distribution_chart(c, sku_labels, sku_vals, sku_cols,
+                                MARGIN, y, chart_w, chart_h,
+                                total_label=f"{fmt_num(tot_bottles)} btl",
+                                sub_label="Total volume")
+
+        row_h = auto_row_h(len(sku), y, 14, 22, reserve=reserve)
+        y_bars = draw_horizontal_bars(c, sku_labels, sku_vals,
+                                      {s["sku"]: _product_color(s["sku"]) for s in sku},
+                                      bars_x, y, bars_w, row_h=row_h,
+                                      value_fmt=lambda v: fmt_num(v) + " btl")
+        y = min(y - chart_h - 12, y_bars)
     else:
         y = draw_empty_state(c, "No SKU-level volume in this data set.", y)
 

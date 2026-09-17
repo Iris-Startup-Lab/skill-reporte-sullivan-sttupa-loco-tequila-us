@@ -318,6 +318,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   .chip.bar {{ background: rgba(110, 30, 40, 0.12); color: var(--brand-maroon-light); }}
   .chip.line {{ background: rgba(46, 110, 110, 0.14); color: var(--series-3); }}
   .chip.donut {{ background: rgba(197, 160, 89, 0.18); color: #8A6822; }}
+  .chip.voronoi {{ background: rgba(46, 110, 110, 0.18); color: #1F6E6E; }}
   .chip.stack {{ background: rgba(169, 108, 67, 0.14); color: var(--series-4); }}
 
   /* SVG Dataviz */
@@ -565,10 +566,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           <div class="chart-wrap"><svg id="chartChannel" width="100%" height="230" preserveAspectRatio="none"></svg></div>
         </div>
         <div class="card">
-          <h3><span class="chip donut">Donut</span>Share of Depletions by SKU</h3>
+          <h3><span class="chip donut" id="chipSkuChart">Donut</span>Share of Depletions by SKU</h3>
           <div class="card-sub">Proportional share of total depleted volume</div>
           <div class="chart-wrap" style="display:flex; align-items:center; gap: 20px;">
-            <svg id="chartDonut" width="160" height="160" viewBox="0 0 160 160" style="flex:none;"></svg>
+            <svg id="chartDonut" width="165" height="185" viewBox="0 0 165 185" style="flex:none;"></svg>
             <div id="donutLegend" style="flex:1;"></div>
           </div>
         </div>
@@ -1147,10 +1148,13 @@ window.LOCO_DATA = {report_data_json};
     }});
   }})();
 
-  // ---------- 4. DONUT: PRODUCT MIX (MAYOR A MENOR) ----------
+  // ---------- 4. SKU PRODUCT MIX: DONUT (<=3) O VORONOI TREEMAP (>3) ----------
   (function(){{
     const svg = document.getElementById('chartDonut');
-    // Mezcla real por SKU (botellas vendidas en DTC + ecommerce -> cajas 9L).
+    const chip = document.getElementById('chipSkuChart');
+    const legend = document.getElementById('donutLegend');
+    if (!svg) return;
+
     const skuPalette = [COLORS.blanco, COLORS.amber, COLORS.corazon,
                         COLORS.aureo, COLORS.teal, COLORS.gold, COLORS.slate];
     const data = (LOCO.sku_mix || []).map((s, i) => ({{
@@ -1158,38 +1162,200 @@ window.LOCO_DATA = {report_data_json};
       v: num(s.cases_9l),
       color: skuPalette[i % skuPalette.length]
     }})).filter(d => d.v > 0);
-    if (!data.length) {{ return; }}
-    data.sort((a,b)=>b.v - a.v);   // regla: mayor a menor
-    const total = data.reduce((a,d)=>a+d.v,0);
-    const cx=80, cy=80, r=64, rInner=40;
-    let angle = -Math.PI/2;
-    const legend = document.getElementById('donutLegend');
 
-    data.forEach(d=>{{
-      const frac = d.v/total;
-      const a0 = angle, a1 = angle + frac*Math.PI*2;
-      angle = a1;
-      const large = (a1-a0) > Math.PI ? 1 : 0;
-      const p0 = [cx + r*Math.cos(a0), cy + r*Math.sin(a0)];
-      const p1 = [cx + r*Math.cos(a1), cy + r*Math.sin(a1)];
-      const p0i = [cx + rInner*Math.cos(a1), cy + rInner*Math.sin(a1)];
-      const p1i = [cx + rInner*Math.cos(a0), cy + rInner*Math.sin(a0)];
-      const d_attr = `M ${{p0[0]}} ${{p0[1]}} A ${{r}} ${{r}} 0 ${{large}} 1 ${{p1[0]}} ${{p1[1]}} L ${{p0i[0]}} ${{p0i[1]}} A ${{rInner}} ${{rInner}} 0 ${{large}} 0 ${{p1i[0]}} ${{p1i[1]}} Z`;
-      const path = el('path', {{d:d_attr, fill:d.color, stroke:'#fff', 'stroke-width':1.5, style:'cursor:pointer'}});
-      const pct = (frac*100).toFixed(1);
-      path.addEventListener('mouseenter', e=>showTip(e, `<b>${{d.name}}</b><div class="row"><span>Volume</span><b>${{d.v}} 9L</b></div><div class="row"><span>Share</span><b>${{pct}}%</b></div>`));
-      path.addEventListener('mousemove', moveTip);
-      path.addEventListener('mouseleave', hideTip);
-      svg.appendChild(path);
+    if (!data.length) return;
+    data.sort((a, b) => b.v - a.v); // regla: mayor a menor
+    const total = data.reduce((a, d) => a + d.v, 0);
 
-      const row = document.createElement('div');
-      row.className = 'legend item';
-      row.style.marginBottom = '4px';
-      row.innerHTML = `<span class="sw" style="background:${{d.color}}"></span><span>${{d.name}} &mdash; <b>${{pct}}%</b></span>`;
-      legend.appendChild(row);
-    }});
-    svg.appendChild(el('text', {{x:cx, y:cy-3, 'text-anchor':'middle', style:'font-family:Fraunces,serif;font-size:16px;font-weight:700;fill:var(--brand-maroon);'}})).textContent = total.toFixed(0);
-    svg.appendChild(el('text', {{x:cx, y:cy+13, 'text-anchor':'middle', class:'axis-label'}})).textContent = '9L total';
+    // Heurística de UI: <=3 dona (total al centro), >3 Voronoi (total arriba)
+    if (data.length <= 3) {{
+      if (chip) {{ chip.className = 'chip donut'; chip.textContent = 'Donut'; }}
+      svg.setAttribute('viewBox', '0 0 160 160');
+      svg.setAttribute('width', '160');
+      svg.setAttribute('height', '160');
+      svg.innerHTML = '';
+      if (legend) legend.innerHTML = '';
+
+      const cx = 80, cy = 80, r = 64, rInner = 40;
+      let angle = -Math.PI / 2;
+
+      data.forEach(d => {{
+        const frac = d.v / total;
+        const a0 = angle, a1 = angle + frac * Math.PI * 2;
+        angle = a1;
+        const large = (a1 - a0) > Math.PI ? 1 : 0;
+        const p0 = [cx + r * Math.cos(a0), cy + r * Math.sin(a0)];
+        const p1 = [cx + r * Math.cos(a1), cy + r * Math.sin(a1)];
+        const p0i = [cx + rInner * Math.cos(a1), cy + rInner * Math.sin(a1)];
+        const p1i = [cx + rInner * Math.cos(a0), cy + rInner * Math.sin(a0)];
+        const d_attr = `M ${{p0[0]}} ${{p0[1]}} A ${{r}} ${{r}} 0 ${{large}} 1 ${{p1[0]}} ${{p1[1]}} L ${{p0i[0]}} ${{p0i[1]}} A ${{rInner}} ${{rInner}} 0 ${{large}} 0 ${{p1i[0]}} ${{p1i[1]}} Z`;
+        const path = el('path', {{d: d_attr, fill: d.color, stroke: '#fff', 'stroke-width': 1.5, style: 'cursor:pointer'}});
+        const pct = (frac * 100).toFixed(1);
+        path.addEventListener('mouseenter', e => showTip(e, `<b>${{d.name}}</b><div class="row"><span>Volume</span><b>${{d.v}} 9L</b></div><div class="row"><span>Share</span><b>${{pct}}%</b></div>`));
+        path.addEventListener('mousemove', moveTip);
+        path.addEventListener('mouseleave', hideTip);
+        svg.appendChild(path);
+
+        if (legend) {{
+          const row = document.createElement('div');
+          row.className = 'legend item';
+          row.style.marginBottom = '4px';
+          row.innerHTML = `<span class="sw" style="background:${{d.color}}"></span><span>${{d.name}} &mdash; <b>${{pct}}%</b></span>`;
+          legend.appendChild(row);
+        }}
+      }});
+
+      svg.appendChild(el('text', {{x: cx, y: cy - 3, 'text-anchor': 'middle', style: 'font-family:Fraunces,serif;font-size:16px;font-weight:700;fill:var(--brand-maroon);'}})).textContent = total.toFixed(0);
+      svg.appendChild(el('text', {{x: cx, y: cy + 13, 'text-anchor': 'middle', class: 'axis-label'}})).textContent = '9L total';
+    }} else {{
+      if (chip) {{ chip.className = 'chip voronoi'; chip.textContent = 'Voronoi Treemap'; }}
+      svg.setAttribute('viewBox', '0 0 165 185');
+      svg.setAttribute('width', '165');
+      svg.setAttribute('height', '185');
+      svg.innerHTML = '';
+      if (legend) legend.innerHTML = '';
+
+      // Geometría del Voronoi circular (Sutherland-Hodgman + Lloyd)
+      function _clip(poly, a, b, c) {{
+        if (!poly || !poly.length) return poly;
+        const res = [], n = poly.length;
+        for (let i = 0; i < n; i++) {{
+          const cur = poly[i], nxt = poly[(i + 1) % n];
+          const cur_in = (a * cur[0] + b * cur[1]) <= c + 1e-9;
+          const nxt_in = (a * nxt[0] + b * nxt[1]) <= c + 1e-9;
+          if (cur_in) res.push(cur);
+          if (cur_in !== nxt_in) {{
+            const dx = nxt[0] - cur[0], dy = nxt[1] - cur[1];
+            const denom = a * dx + b * dy;
+            if (Math.abs(denom) > 1e-12) {{
+              const t = (c - (a * cur[0] + b * cur[1])) / denom;
+              res.push([cur[0] + t * dx, cur[1] + t * dy]);
+            }}
+          }}
+        }}
+        return res;
+      }}
+
+      function _area(poly) {{
+        const n = poly.length;
+        if (n < 3) return 0;
+        let a = 0;
+        for (let i = 0; i < n; i++) {{
+          const j = (i + 1) % n;
+          a += poly[i][0] * poly[j][1] - poly[j][0] * poly[i][1];
+        }}
+        return Math.abs(a) * 0.5;
+      }}
+
+      function _centroid(poly) {{
+        const n = poly.length;
+        if (n < 3) return [0, 0];
+        let A = 0, cx = 0, cy = 0;
+        for (let i = 0; i < n; i++) {{
+          const j = (i + 1) % n;
+          const cross = poly[i][0] * poly[j][1] - poly[j][0] * poly[i][1];
+          A += cross;
+          cx += (poly[i][0] + poly[j][0]) * cross;
+          cy += (poly[i][1] + poly[j][1]) * cross;
+        }}
+        A *= 0.5;
+        return Math.abs(A) > 1e-12 ? [cx / (6 * A), cy / (6 * A)] : [0, 0];
+      }}
+
+      const vals = data.map(d => d.v);
+      const n = vals.length;
+      const boundary = [];
+      const NB = 64;
+      for (let k = 0; k < NB; k++) {{
+        const ang = (2 * Math.PI * k) / NB;
+        boundary.push([Math.cos(ang), Math.sin(ang)]);
+      }}
+      const barea = _area(boundary);
+      const target = vals.map(v => (v / total) * barea);
+      const ga = Math.PI * (3 - Math.sqrt(5));
+      const sites = [];
+      for (let i = 0; i < n; i++) {{
+        const r = 0.55 * Math.sqrt((i + 0.5) / n);
+        sites.push([r * Math.cos(i * ga), r * Math.sin(i * ga)]);
+      }}
+      let weights = new Array(n).fill(0.0);
+
+      function computeCells(s, w) {{
+        const list = [];
+        for (let i = 0; i < n; i++) {{
+          let poly = boundary.slice();
+          for (let j = 0; j < n; j++) {{
+            if (j === i) continue;
+            const a = 2 * (s[j][0] - s[i][0]);
+            const b = 2 * (s[j][1] - s[i][1]);
+            const c = (s[j][0]**2 + s[j][1]**2 - w[j]) - (s[i][0]**2 + s[i][1]**2 - w[i]);
+            poly = _clip(poly, a, b, c);
+            if (!poly.length) break;
+          }}
+          list.push(poly);
+        }}
+        return list;
+      }}
+
+      let cells = computeCells(sites, weights);
+      for (let it = 0; it < 90; it++) {{
+        for (let i = 0; i < n; i++) {{
+          if (_area(cells[i]) > 1e-8) sites[i] = _centroid(cells[i]);
+        }}
+        cells = computeCells(sites, weights);
+        const areas = cells.map(c => _area(c));
+        for (let i = 0; i < n; i++) weights[i] += (target[i] - areas[i]) * 0.45;
+        const wmin = Math.min(...weights);
+        weights = weights.map(w => w - wmin);
+        cells = computeCells(sites, weights);
+      }}
+
+      // Encabezado con KPI global arriba (deja el 100% del círculo para celdas)
+      const cxCircle = 82.5, cyCircle = 108, rCircle = 72;
+      svg.appendChild(el('text', {{x: cxCircle, y: 16, 'text-anchor': 'middle', style: 'font-family:Fraunces,serif;font-size:15px;font-weight:700;fill:var(--brand-maroon);'}})).textContent = `${{total.toFixed(0)}} 9L total`;
+      svg.appendChild(el('text', {{x: cxCircle, y: 28, 'text-anchor': 'middle', class: 'axis-label'}})).textContent = 'Product Mix';
+
+      cells.forEach((cell, i) => {{
+        if (cell.length < 3) return;
+        const d = data[i];
+        const frac = d.v / total;
+        const pct = (frac * 100).toFixed(1);
+        const pts = cell.map(p => `${{(cxCircle + p[0] * rCircle).toFixed(1)}},${{(cyCircle + p[1] * rCircle).toFixed(1)}}`).join(' ');
+        const polyEl = el('polygon', {{points: pts, fill: d.color, stroke: '#fff', 'stroke-width': 1.5, style: 'cursor:pointer'}});
+        polyEl.addEventListener('mouseenter', e => showTip(e, `<b>${{d.name}}</b><div class="row"><span>Volume</span><b>${{d.v}} 9L</b></div><div class="row"><span>Share</span><b>${{pct}}%</b></div>`));
+        polyEl.addEventListener('mousemove', moveTip);
+        polyEl.addEventListener('mouseleave', hideTip);
+        svg.appendChild(polyEl);
+
+        // Contraste dinámico
+        const cHex = d.color.replace('#', '');
+        const rC = parseInt(cHex.slice(0, 2), 16) / 255;
+        const gC = parseInt(cHex.slice(2, 4), 16) / 255;
+        const bC = parseInt(cHex.slice(4, 6), 16) / 255;
+        const lum = 0.299 * rC + 0.587 * gC + 0.114 * bC;
+        const txtColor = lum < 0.55 ? '#FFFFFF' : '#3A3A3A';
+
+        const cent = _centroid(cell);
+        const lx = cxCircle + cent[0] * rCircle;
+        const ly = cyCircle + cent[1] * rCircle;
+
+        if (frac >= 0.07) {{
+          const shortName = d.name.length > 9 ? d.name.slice(0, 8) + '…' : d.name;
+          svg.appendChild(el('text', {{x: lx, y: ly - 2, 'text-anchor': 'middle', style: `font-size:8px;font-weight:700;fill:${{txtColor}};pointer-events:none;`}})).textContent = shortName;
+          svg.appendChild(el('text', {{x: lx, y: ly + 9, 'text-anchor': 'middle', style: `font-size:8.5px;font-weight:600;fill:${{txtColor}};pointer-events:none;`}})).textContent = `${{Math.round(frac * 100)}}%`;
+        }} else if (frac >= 0.035) {{
+          svg.appendChild(el('text', {{x: lx, y: ly + 3, 'text-anchor': 'middle', style: `font-size:7.5px;font-weight:600;fill:${{txtColor}};pointer-events:none;`}})).textContent = `${{Math.round(frac * 100)}}%`;
+        }}
+
+        if (legend) {{
+          const row = document.createElement('div');
+          row.className = 'legend item';
+          row.style.marginBottom = '4px';
+          row.innerHTML = `<span class="sw" style="background:${{d.color}}"></span><span>${{d.name}} &mdash; <b>${{pct}}%</b></span>`;
+          legend.appendChild(row);
+        }}
+      }});
+    }}
   }})();
 
   // ---------- 5. TOP ACCOUNTS BY LIFETIME BOTTLES (MAYOR A MENOR) ----------
