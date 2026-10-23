@@ -1,0 +1,2182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sullivan Rutherford Estate — Data Requirements Specification (ASD-STE100)</title>
+  
+  <!-- Fonts: EB Garamond (Brand Official) & Inter for crisp technical UI -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    /* ==========================================================================
+       DESIGN SYSTEM TOKENS — Sullivan Rutherford Estate (Design_sullivan.md)
+       ========================================================================== */
+    :root {
+      --brand-navy: #003057;       /* Primary Brand Background & Headers */
+      --brand-navy-dark: #00223e;  /* Deep navy for hover & contrast */
+      --brand-navy-light: #0d4677; /* Accent navy */
+      --brand-gray: #656565;       /* Secondary text & subtle borders */
+      --brand-gray-light: #8e8e8e; /* Muted captions */
+      --brand-tan: #A67C52;        /* Warm accent — highlights, badges */
+      --brand-tan-light: #c49d74;  /* Hover accent */
+      --brand-cream: #FFFBEF;      /* Alternate light background */
+      --brand-cream-border: #F0E6D2;
+      --header-text: #FFFFFF;
+      --page-bg: #F8F9FA;
+      --card-bg: #FFFFFF;
+      --rule-line: #D9D9D9;
+      --rule-line-light: #EBEBEB;
+      
+      /* Semantic Status */
+      --status-error-bg: #FDF2F2;
+      --status-error-border: #F8B4B4;
+      --status-error-text: #8C2F2F;
+      --status-warning-bg: #FEF9ED;
+      --status-warning-border: #F7E0A3;
+      --status-warning-text: #8F5B1E;
+      --status-success-bg: #F0FDF4;
+      --status-success-border: #BBF7D0;
+      --status-success-text: #166534;
+      --status-info-bg: #F0F7FF;
+      --status-info-border: #BAE6FD;
+      --status-info-text: #0369A1;
+
+      /* Typography */
+      --font-serif: 'EB Garamond', Garamond, Georgia, serif;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', Consolas, "SFMono-Regular", Menlo, monospace;
+      
+      --shadow-sm: 0 1px 2px 0 rgba(0, 48, 87, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 48, 87, 0.08), 0 2px 4px -2px rgba(0, 48, 87, 0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 48, 87, 0.1), 0 4px 6px -4px rgba(0, 48, 87, 0.06);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--page-bg);
+      color: #1F2937;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      padding-bottom: 80px;
+    }
+
+    /* Print styling */
+    @media print {
+      body { background: #FFFFFF; padding-bottom: 0; }
+      .no-print { display: none !important; }
+      .page-break { page-break-before: always; }
+      .header-band { position: static; }
+      .card { box-shadow: none !important; border: 1px solid #CCC !important; }
+    }
+
+    /* ==========================================================================
+       HEADER & NAVIGATION BAR
+       ========================================================================== */
+    .header-band {
+      background: linear-gradient(135deg, var(--brand-navy) 0%, var(--brand-navy-dark) 100%);
+      color: var(--header-text);
+      padding: 24px 32px;
+      border-bottom: 4px solid var(--brand-tan);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: var(--shadow-md);
+    }
+
+    .header-container {
+      max-width: 1300px;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .brand-block {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .brand-logo-img {
+      height: 44px;
+      width: auto;
+      max-width: 240px;
+      display: block;
+      object-fit: contain;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2));
+    }
+
+    .brand-title-group {
+      border-left: 1px solid rgba(255, 255, 255, 0.25);
+      padding-left: 20px;
+    }
+
+    .brand-title-group h1 {
+      font-family: var(--font-serif);
+      font-size: 1.65rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      line-height: 1.2;
+      color: #FFFFFF;
+    }
+
+    .brand-title-group p {
+      font-size: 0.85rem;
+      color: var(--brand-cream);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-top: 4px;
+      font-weight: 500;
+    }
+
+    /* Controls: Lang Switcher & Actions */
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .lang-switcher {
+      display: inline-flex;
+      background: rgba(0, 20, 40, 0.6);
+      padding: 4px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .lang-btn {
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      letter-spacing: 0.03em;
+    }
+
+    .lang-btn:hover {
+      color: #FFFFFF;
+    }
+
+    .lang-btn.active {
+      background: var(--brand-tan);
+      color: #FFFFFF;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+    }
+
+    .action-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      color: #FFFFFF;
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .action-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: #FFFFFF;
+    }
+
+    /* ==========================================================================
+       SUB-NAV / QUICK JUMP
+       ========================================================================== */
+    .subnav-band {
+      background: #FFFFFF;
+      border-bottom: 1px solid var(--rule-line);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .subnav-container {
+      max-width: 1300px;
+      margin: 0 auto;
+      padding: 0 32px;
+      display: flex;
+      gap: 24px;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    .subnav-link {
+      color: var(--brand-gray);
+      text-decoration: none;
+      font-size: 0.88rem;
+      font-weight: 500;
+      padding: 14px 4px;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .subnav-link:hover, .subnav-link.active {
+      color: var(--brand-navy);
+      border-bottom-color: var(--brand-tan);
+    }
+
+    /* ==========================================================================
+       MAIN CONTENT CONTAINER
+       ========================================================================== */
+    .main-container {
+      max-width: 1300px;
+      margin: 32px auto 0;
+      padding: 0 32px;
+    }
+
+    /* ASD-STE100 Compliance Banner */
+    .ste-banner {
+      background: var(--brand-cream);
+      border: 1px solid var(--brand-cream-border);
+      border-left: 5px solid var(--brand-tan);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 28px;
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .ste-icon {
+      color: var(--brand-tan);
+      font-size: 1.5rem;
+      line-height: 1;
+      padding-top: 2px;
+    }
+
+    .ste-content h3 {
+      font-family: var(--font-serif);
+      font-size: 1.1rem;
+      color: var(--brand-navy);
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .ste-content p {
+      font-size: 0.86rem;
+      color: var(--brand-gray);
+      margin: 0;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--rule-line);
+      border-radius: 10px;
+      padding: 28px;
+      margin-bottom: 32px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      border-bottom: 1px solid var(--rule-line-light);
+      padding-bottom: 16px;
+      margin-bottom: 20px;
+    }
+
+    .card-header h2 {
+      font-family: var(--font-serif);
+      font-size: 1.5rem;
+      color: var(--brand-navy);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-badge {
+      font-family: var(--font-sans);
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 4px 10px;
+      border-radius: 4px;
+      background: var(--brand-navy);
+      color: #FFFFFF;
+    }
+
+    .card p.lead {
+      font-size: 1.02rem;
+      color: #374151;
+      margin-bottom: 16px;
+      font-weight: 400;
+    }
+
+    /* Status Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .badge-error {
+      background: var(--status-error-bg);
+      color: var(--status-error-text);
+      border: 1px solid var(--status-error-border);
+    }
+
+    .badge-warning {
+      background: var(--status-warning-bg);
+      color: var(--status-warning-text);
+      border: 1px solid var(--status-warning-border);
+    }
+
+    .badge-success {
+      background: var(--status-success-bg);
+      color: var(--status-success-text);
+      border: 1px solid var(--status-success-border);
+    }
+
+    .badge-info {
+      background: var(--status-info-bg);
+      color: var(--status-info-text);
+      border: 1px solid var(--status-info-border);
+    }
+
+    /* Grid Layouts */
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+      margin: 20px 0;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+      gap: 24px;
+      margin: 20px 0;
+    }
+
+    /* Feature/Gap Item */
+    .feature-box {
+      border: 1px solid var(--rule-line);
+      border-radius: 8px;
+      padding: 20px;
+      background: #FFFFFF;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .feature-box:hover {
+      box-shadow: var(--shadow-md);
+      border-color: var(--brand-tan);
+    }
+
+    .feature-box.critical {
+      border-left: 4px solid var(--status-error-text);
+    }
+
+    .feature-num {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 700;
+      background: var(--brand-navy);
+      color: #FFFFFF;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+    }
+
+    .feature-box h4 {
+      font-family: var(--font-serif);
+      font-size: 1.15rem;
+      color: var(--brand-navy);
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .feature-box p {
+      font-size: 0.9rem;
+      color: #4B5563;
+      margin-bottom: 12px;
+    }
+
+    .feature-meta {
+      font-size: 0.8rem;
+      background: var(--brand-cream);
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--brand-cream-border);
+      color: var(--brand-gray);
+    }
+
+    /* ==========================================================================
+       DATA TABLES & DICTIONARIES
+       ========================================================================== */
+    .table-container {
+      overflow-x: auto;
+      margin: 16px 0;
+      border: 1px solid var(--rule-line);
+      border-radius: 8px;
+      background: #FFFFFF;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.86rem;
+      text-align: left;
+    }
+
+    th {
+      background: var(--brand-navy);
+      color: #FFFFFF;
+      font-family: var(--font-serif);
+      font-size: 0.92rem;
+      font-weight: 600;
+      padding: 12px 16px;
+      letter-spacing: 0.02em;
+      border-right: 1px solid rgba(255,255,255,0.1);
+    }
+
+    th:last-child {
+      border-right: none;
+    }
+
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--rule-line-light);
+      color: #374151;
+      vertical-align: middle;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:nth-child(even) td {
+      background-color: #FAFAFA;
+    }
+
+    tr:hover td {
+      background-color: var(--brand-cream);
+    }
+
+    .col-name {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--brand-navy);
+      background: #EDF2F7;
+      padding: 3px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .col-type {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--brand-gray);
+    }
+
+    .col-sample {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      background: #F4F6F8;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #111827;
+      border: 1px solid #E5E7EB;
+      white-space: nowrap;
+    }
+
+    /* Tabs for File Dictionaries */
+    .file-tabs {
+      display: flex;
+      border-bottom: 2px solid var(--rule-line);
+      margin-bottom: 20px;
+      gap: 8px;
+    }
+
+    .file-tab-btn {
+      background: #F3F4F6;
+      border: 1px solid var(--rule-line);
+      border-bottom: none;
+      padding: 10px 20px;
+      border-radius: 8px 8px 0 0;
+      font-family: var(--font-serif);
+      font-size: 1.02rem;
+      font-weight: 600;
+      color: var(--brand-gray);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+
+    .file-tab-btn:hover {
+      background: #E5E7EB;
+      color: var(--brand-navy);
+    }
+
+    .file-tab-btn.active {
+      background: #FFFFFF;
+      color: var(--brand-navy);
+      border-color: var(--brand-tan);
+      border-bottom: 2px solid #FFFFFF;
+      margin-bottom: -2px;
+      box-shadow: 0 -2px 5px rgba(0,0,0,0.03);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Code & CSV Preview Box */
+    .csv-preview-card {
+      background: #1E293B;
+      border-radius: 8px;
+      color: #E2E8F0;
+      padding: 16px 20px;
+      margin: 16px 0;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      line-height: 1.5;
+      overflow-x: auto;
+      border: 1px solid #334155;
+    }
+
+    .csv-preview-card .header-line {
+      color: #38BDF8;
+      font-weight: 600;
+      border-bottom: 1px solid #334155;
+      padding-bottom: 6px;
+      margin-bottom: 6px;
+    }
+
+    .csv-preview-card .data-line {
+      color: #94A3B8;
+    }
+
+    .csv-preview-card .data-line:hover {
+      color: #F8FAFC;
+      background: rgba(255,255,255,0.05);
+    }
+
+    /* STE Rules Callout */
+    .rules-list {
+      list-style-type: none;
+      margin: 12px 0;
+    }
+
+    .rules-list li {
+      position: relative;
+      padding-left: 28px;
+      margin-bottom: 10px;
+      font-size: 0.92rem;
+      color: #374151;
+    }
+
+    .rules-list li::before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 18px;
+      height: 18px;
+      background: var(--brand-navy);
+      color: #FFFFFF;
+      font-size: 0.72rem;
+      font-weight: 700;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Action Checklist */
+    .step-card {
+      display: flex;
+      gap: 16px;
+      padding: 16px;
+      border-radius: 8px;
+      background: #FFFFFF;
+      border: 1px solid var(--rule-line);
+      margin-bottom: 12px;
+      align-items: flex-start;
+    }
+
+    .step-number {
+      background: var(--brand-tan);
+      color: #FFFFFF;
+      font-weight: 700;
+      font-size: 1rem;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .step-body h5 {
+      font-family: var(--font-serif);
+      font-size: 1.1rem;
+      color: var(--brand-navy);
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .step-body p {
+      font-size: 0.88rem;
+      color: #4B5563;
+      margin: 0;
+    }
+
+    /* Footer */
+    footer {
+      max-width: 1300px;
+      margin: 40px auto 0;
+      padding: 24px 32px;
+      border-top: 1px solid var(--rule-line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+      color: var(--brand-gray);
+    }
+
+    footer a {
+      color: var(--brand-navy);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    /* Copy Button */
+    .btn-copy {
+      background: #334155;
+      color: #FFFFFF;
+      border: none;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      float: right;
+      transition: background 0.2s;
+    }
+
+    .btn-copy:hover {
+      background: var(--brand-tan);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ========================================================================
+       TOP HEADER BAND
+       ======================================================================== -->
+  <header class="header-band">
+    <div class="header-container">
+      <div class="brand-block">
+        <!-- Official Sullivan Logo SVG Vector Embedded -->
+        <img src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/Pgo8IURPQ1RZUEUgc3ZnIFBVQkxJQyAiLS8vVzNDLy9EVEQgU1ZHIDIwMDEwOTA0Ly9FTiIKICJodHRwOi8vd3d3LnczLm9yZy9UUi8yMDAxL1JFQy1TVkctMjAwMTA5MDQvRFREL3N2ZzEwLmR0ZCI+CjxzdmcgdmVyc2lvbj0iMS4wIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciCiB3aWR0aD0iMTAzMy4wMDAwMDBwdCIgaGVpZ2h0PSIzNTkuMDAwMDAwcHQiIHZpZXdCb3g9IjAgMCAxMDMzLjAwMDAwMCAzNTkuMDAwMDAwIgogcHJlc2VydmVBc3BlY3RSYXRpbz0ieE1pZFlNaWQgbWVldCI+Cgo8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgwLjAwMDAwMCwzNTkuMDAwMDAwKSBzY2FsZSgwLjEwMDAwMCwtMC4xMDAwMDApIgpmaWxsPSIjRkZGRkZGIiBzdHJva2U9Im5vbmUiPgo8cGF0aCBkPSJNNjQ1IDMzNzIgYy0xOTUgLTU4IC0zMzUgLTIwOCAtMzY0IC0zODcgLTE1IC0xMDEgNCAtMTgwIDY2IC0yNjcgNTYKLTc3IDEyNyAtMTAzIDM1MyAtMTI4IDE0MyAtMTYgMTkyIC0zMyAyMzMgLTgwIDY3IC03OSA5MSAtMjM2IDUyIC0zNTAgLTI1Ci03NCAtMTAwIC0xNDkgLTE4MCAtMTgwIC01MiAtMjEgLTc4IC0yNCAtMTkwIC0yNCAtMTIzIC0xIC0xMzMgMSAtMTg3IDI3IC02OQozNCAtOTcgNzUgLTEwNSAxNTIgLTUgNDQgLTkgNTUgLTI0IDU1IC0xOSAwIC0yMiAtMTEgLTMzIC0xMTUgLTMgLTI3IC05IC02OQotMTIgLTkyIC02IC00MCAtNiAtNDIgMzQgLTYyIDczIC0zNyAxODEgLTYxIDI3NyAtNjEgMTg5IDAgMzcwIDEwMSA0NzcgMjY1CjU4IDg4IDgxIDE3NyA3NiAyODMgLTEwIDE4OCAtMTAwIDI2NCAtMzU5IDMwMiAtMTk2IDI5IC0yNDggNDggLTMxMSAxMTggLTQ2CjUxIC02MyAxMDAgLTYyIDE4OCAwIDEzMiA3NiAyMzQgMjAzIDI3MCA4NCAyNSAyMzkgMTYgMzEzIC0xOCA3OCAtMzYgOTUgLTU2CjEwMyAtMTIxIDUgLTQyIDEyIC01NiAyNSAtNjAgMTYgLTQgMTkgNCAyNCA2MiA0IDM2IDggODcgMTEgMTEzIGw0IDQ3IC03NSAzNwpjLTcwIDM1IC04MiAzOCAtMTgyIDQxIC04MSAyIC0xMjIgLTIgLTE2NyAtMTV6Ii8+CjxwYXRoIGQ9Ik03NDcyIDMxNzAgYy00OSAtMTAyIC0xNzEgLTM1NCAtMjcyIC01NjAgLTMyMCAtNjU4IC0zMTIgLTY0NSAtMzg1Ci02NjAgLTIxIC00IC0zMSAtMTIgLTMzIC0yOCAtMyAtMjIgLTMgLTIyIDE0NyAtMjIgMTQ0IDAgMTUxIDEgMTUxIDIwIDAgMTIKLTcgMjAgLTE4IDIwIC0zMiAwIC02MyAyOSAtNTYgNTMgMTIgNDEgMTMyIDMyMiAxOTMgNDUyIGw2MSAxMzAgMjU2IDAgMjU3IDAKMTIzIC0yODAgYzczIC0xNjQgMTIzIC0yOTAgMTIyIC0zMDUgLTMgLTIwIC0xMiAtMjggLTUwIC0zOSAtMzMgLTEwIC00OCAtMjAKLTQ4IC0zMSAwIC0xNSAxOSAtMTcgMTg1IC0xNyAxNzMgMCAxODUgMSAxODUgMTkgMCAxMCAtNyAxOCAtMTYgMTggLTMyIDAgLTgzCjMyIC0xMDYgNjggLTI2IDM5IC00MjEgOTA5IC01MzkgMTE4NyBsLTY4IDE1OSAtODkgLTE4NHogbTE1NSAtMjUzIGM1MSAtMTE4Cjk1IC0yMjEgOTkgLTIzMCA2IC0xNiAtMTIgLTE3IC0yMDUgLTE3IC0xMTYgMCAtMjExIDMgLTIxMSA2IDAgMTIgMjEzIDQ1NAoyMTkgNDU0IDMgMCA0OCAtOTYgOTggLTIxM3oiLz4KPHBhdGggZD0iTTY3ODggMzI5MyBjLTg3IC0zIC0xMDggLTcgLTEwOCAtMTggMCAtMTAgMTAgLTE1IDMwIC0xNSAzOSAwIDUyCi0yNSAzOSAtNzUgLTYgLTIxIC0xMDAgLTIzNSAtMjA5IC00NzQgLTI2MiAtNTc3IC0yOTcgLTY1MSAtMzA4IC02NTEgLTE2IDAKLTUwMiAxMTI3IC01MDIgMTE2NCAwIDExIDEzIDE4IDQwIDIyIDI5IDUgNDAgMTEgNDAgMjQgMCAxNiAtMTYgMTcgLTE4MSAxNwotMTYwIDEgLTE4MCAtMSAtMTc3IC0xNSAyIC0xMCAxOSAtMjAgNDQgLTI0IDc3IC0xNiA4NyAtMzMgMzE0IC01NDMgMTc5IC00MDMKMzExIC03MTIgMzQwIC03OTcgMTUgLTQzIDI3IC02NSAzNCAtNjAgODEgNTIgODQgNTUgMTIxIDE1NiA2OSAxODcgMTQwIDM0MgozNjIgNzg4IDE0MCAyODIgMjI5IDQ1MCAyNDEgNDU3IDEyIDYgMzIgMTEgNDYgMTEgMTkgMCAyNiA1IDI2IDIwIDAgMTcgLTYgMjAKLTQyIDE4IC0yNCAtMSAtOTEgLTQgLTE1MCAtNXoiLz4KPHBhdGggZD0iTTk1NDAgMzI4NSBjMCAtOCAxNSAtMTYgMzMgLTIwIDg2IC0xNyA4OSAtMjMgOTggLTIwMCA4IC0xNTMgMCAtOTE3Ci0xMCAtOTEzIC00IDIgLTE1MSAxNTQgLTMyNyAzMzggLTE5NCAyMDMgLTM5NiA0MjYgLTUxMyA1NjggbC0xOTIgMjMyIC0xMjUgMApjLTEwMyAwIC0xMjQgLTMgLTEyNCAtMTUgMCAtOCAxMiAtMTcgMjggLTIxIDU3IC0xMiA4MSAtMjcgMTA3IC02NiAyNyAtNDEgMjcKLTQ0IDM3IC0yODcgNSAtMTM1IDggLTM4OCA2IC01NjEgLTQgLTM1MSAtMTAgLTM4MyAtNjUgLTM5NiAtNTUgLTEyIC02MyAtMTUKLTYzIC0yNyAwIC05IDQ3IC0xMiAxNzAgLTEzIDE1MiAtMSAxNzEgMSAxNjggMTUgLTIgMTAgLTE4IDE4IC00MSAyMiAtNTggOQotNjcgMjUgLTc3IDEzMCAtMTMgMTI2IC0xMyA5ODIgLTEgOTc3IDggLTMgODUgLTgzIDIzNSAtMjQ4IDIzIC0yNSA5NyAtMTA4CjE2NiAtMTg1IDE0MiAtMTU5IDQ0NCAtNDg0IDYwOSAtNjU1IGwxMTIgLTExNSAtOCAxNDAgYy01IDc3IC03IDM4NSAtNiA2ODQgMwo2MTAgMCA1ODYgNzMgNTk3IDIyIDQgNDAgMTIgNDAgMTggMCA4IC01MCAxMSAtMTY1IDEyIC0xMjkgMSAtMTY1IC0xIC0xNjUKLTExeiIvPgo8cGF0aCBkPSJNMTM0MCAzMjY4IGMwIC0xMSAxMyAtMjEgMzggLTI4IDczIC0yMCA2NyAyOCA2NyAtNTYyIDAgLTU2OSAwIC01NjgKNTAgLTY0OCA3MCAtMTEyIDI1MiAtMTkyIDM5NSAtMTc1IDE1OSAxOSAzNDIgMTA3IDQ3NiAyMjggMjkgMjYgNTUgNDcgNTggNDcKMyAwIDYgLTU3IDYgLTEyNiBsMCAtMTI2IDMzIDYgYzE3IDQgNjYgOSAxMDcgMTMgOTYgNyAxMjAgMjMgNTkgMzggLTMyIDggLTQ4CjE4IC01NyAzOCAtMjQgNDkgLTM1IDQyOCAtMjUgODQzIDggMzMzIDEyIDM4NSAyNiA0MDggMTAgMTQgMjYgMjYgMzYgMjYgMjggMAo1MSAxMSA1MSAyNCAwIDggLTQ4IDEyIC0xNzAgMTMgLTEzOCAxIC0xNzAgLTIgLTE3MCAtMTMgMCAtNyAxNyAtMTggMzkgLTI0CjIxIC01IDQ1IC0xOCA1MiAtMjcgMTEgLTEzIDE1IC0xMDQgMTcgLTQ2OCA0IC01MjcgNSAtNTE3IC05NiAtNjI3IC0xNzAgLTE4NAotNDIwIC0yMzYgLTYwMiAtMTI0IC0xMDEgNjIgLTE1MiAxNTUgLTE3MCAzMTQgLTEyIDEwNiAtMyA4MzUgMTEgODczIDEwIDI2CjMyIDQyIDc3IDU0IDEyIDQgMjIgMTQgMjIgMjMgMCAxNSAtMTcgMTcgLTE2NSAxNyAtMTQ5IDAgLTE2NSAtMSAtMTY1IC0xN3oiLz4KPHBhdGggZD0iTTI5MjAgMzI3NSBjMCAtNiAxNiAtMTYgMzcgLTIxIDIxIC01IDQ1IC0yMSA1NyAtMzcgMjEgLTI4IDIxIC0zNwoyNCAtNjM4IDIgLTUzMiAxIC02MTIgLTEzIC02MzggLTggLTE3IC0xNSAtMzEgLTE1IC0zMyAwIC02IDc0OSAtMyA3NTUgMyAzIDQKOSA0OCAxMiA5OCA0IDY2IDIgOTUgLTcgMTA2IC0yMCAyNCAtMjUgMTggLTM4IC00NSAtOCAtMzcgLTE5IC02MyAtMzAgLTY5Ci0xOCAtOSAtMzAxIC0yNiAtNDM5IC0yNiAtNTQgMCAtODYgNCAtOTUgMTMgLTEwIDEwIC0xMyAxMzQgLTEzIDYxMyBsMCA2MDEKMzMgMjkgYzE4IDE2IDQxIDI5IDUyIDI5IDExIDAgMjAgNiAyMCAxMyAwIDkgLTQxIDEyIC0xNzAgMTMgLTEyNSAxIC0xNzAgLTIKLTE3MCAtMTF6Ii8+CjxwYXRoIGQ9Ik0zOTIwIDMyNzYgYzAgLTcgMjEgLTE3IDQ2IC0yNCA3NSAtMjAgNzIgNSA3NiAtNjgzIDMgLTU0NSAxIC02MDcKLTEzIC02MzQgbC0xNyAtMzAgMzcyIDAgYzIwNCAwIDM3NyA0IDM4NCA4IDggNiAxMiAzOSAxMiAxMDcgMCA4MCAtMyA5OSAtMTYKMTA0IC05IDMgLTE3IDYgLTE5IDYgLTEgMCAtNSAtMjMgLTcgLTUwIC04IC04NCAtMTMgLTg2IC0yMTEgLTk2IC0yNzAgLTE0Ci0zMzYgLTEyIC0zNTEgOCAtMTcgMjQgLTI2IDI2NyAtMjYgNzEyIDEgNDkyIDcgNTM1IDgxIDU1MSAxNiA0IDI5IDEyIDI5IDE4CjAgOSAtNDggMTIgLTE3MCAxMyAtMTIzIDEgLTE3MCAtMiAtMTcwIC0xMHoiLz4KPHBhdGggZD0iTTQ5OTAgMzI3MCBjMCAtMTEgMTQgLTE5IDQzIC0yNiAzNiAtOCA0NCAtMTQgNTQgLTQ0IDkgLTI1IDEyIC0xOTIKMTIgLTYwOCAxIC02MzAgMSAtNjM1IC01NiAtNjQ3IC00OCAtMTEgLTUzIC0xNCAtNTMgLTMwIDAgLTEzIDIzIC0xNSAxNjUgLTE1CjE1OCAwIDE2NSAxIDE2NSAyMCAwIDE2IC03IDIwIC0zMyAyMCAtNjcgMCAtNzEgOSAtNzkgMTk3IC0xMSAyMzEgMiAxMDM2IDE2CjEwNjUgNiAxMyAzMCAzMiA1NCA0MyA3NSAzNSA1NSA0MiAtMTIzIDQxIC0xNDMgMCAtMTY1IC0zIC0xNjUgLTE2eiIvPgo8cGF0aCBkPSJNMjQyIDEzMzMgYzMgLTE3IDI0OCAtMTggNDk2OCAtMTggNDcyMCAwIDQ5NjUgMSA0OTY4IDE4IDMgMTYgLTIzOQoxNyAtNDk2OCAxNyAtNDcyOSAwIC00OTcxIC0xIC00OTY4IC0xN3oiLz4KPHBhdGggZD0iTTIwMDggODI4IGMtMTYgLTE2IC00MSAtMTggLTIxOSAtMTggLTE3NyAwIC0yMDMgMiAtMjE0IDE3IC0xMCAxNAotMTUgNiAtMzQgLTU0IC0xMSAtMzkgLTIxIC03NCAtMjEgLTc3IDAgLTE1IDE3IC0zIDM4IDI4IDEzIDE5IDM4IDQyIDU3IDUwCjQ0IDIxIDExMSAyMSAxMTkgMCAzIC05IDYgLTExNyA2IC0yNDAgMCAtMjExIC0xIC0yMjUgLTIwIC0yNDQgLTExIC0xMSAtMzAKLTIwIC00MiAtMjAgLTEyIDAgLTE4IC0zIC0xNSAtNyAxMCAtOSAyMjggLTEwIDIzNCAwIDIgNCAtNSA3IC0xNiA3IC0xMiAwCi0zMCA5IC00MSAyMCAtMTkgMTkgLTIwIDMzIC0yMCAyNDggMCAxNjQgMyAyMzEgMTIgMjQwIDE2IDE2IDk2IDE1IDEyOCAtMSAxNQotNyAzMSAtMzAgNDEgLTU3IDE2IC00MiAxNyAtNDMgMjQgLTIwIDMgMTQgNSA1MyAzIDg1IC0zIDU3IC00IDU5IC0yMCA0M3oiLz4KPHBhdGggZD0iTTgzODggODMwIGMtMTcgLTE5IC0yOSAtMjAgLTIyMyAtMjAgLTE3MyAwIC0yMDcgMiAtMjExIDE1IC00IDggLTkKMTMgLTEzIDEwIC0xMiAtNyAtNDQgLTEzNSAtMzYgLTE0MyA0IC00IDEwIC0xIDEyIDYgMjAgNTQgOTYgOTcgMTU4IDkwIGwzMAotMyAwIC0yNTAgMCAtMjUwIC0zMiAtMTAgYy0xOCAtNSAtMzMgLTEyIC0zMyAtMTUgMCAtOCAyMjggLTUgMjM2IDMgNCA0IC0yIDcKLTEzIDcgLTEyIDAgLTMwIDggLTQyIDE4IC0yMSAxNyAtMjEgMjIgLTE5IDI1NyBsMyAyNDAgNTMgMyBjNjcgNCA5NyAtMTQgMTIxCi03MSBsMTggLTQyIDggNzcgYzkgOTEgNiAxMDUgLTE3IDc4eiIvPgo8cGF0aCBkPSJNOTYwOCA4MjggYy0xNiAtMTYgLTQxIC0xOCAtMjE5IC0xOCAtMTc3IDAgLTIwMyAyIC0yMTQgMTcgLTEwIDE0Ci0xNSA1IC0zNCAtNTYgLTEyIC00MCAtMjAgLTc2IC0xNyAtNzggNiAtNiA0NSAzNyA0NiA0OSAwIDQgMTggMTcgNDAgMjggNDgKMjUgMTE1IDI3IDEyNCA0IDMgLTkgNiAtMTE3IDYgLTI0MCAwIC0yMTEgLTEgLTIyNSAtMjAgLTI0NCAtMTEgLTExIC0zMCAtMjAKLTQyIC0yMCAtMTIgMCAtMTggLTMgLTE1IC03IDEwIC05IDIyOCAtMTAgMjM0IDAgMiA0IC01IDcgLTE2IDcgLTEyIDAgLTMwIDkKLTQxIDIwIC0xOSAxOSAtMjAgMzMgLTIwIDI0OCAwIDE2NCAzIDIzMSAxMiAyNDAgMTYgMTYgOTYgMTUgMTI4IC0xIDE1IC03IDMxCi0zMCA0MSAtNTcgMTYgLTQyIDE3IC00MyAyNCAtMjAgMyAxNCA1IDUzIDMgODUgLTMgNTcgLTQgNTkgLTIwIDQzeiIvPgo8cGF0aCBkPSJNNDc1MiA4MDUgYy02NyAtMTkgLTg0IC0yOCAtMTM0IC03MyAtNTQgLTQ5IC04MCAtMTA0IC04NiAtMTgzIC00Ci01NiAtMSAtNzUgMjAgLTEyMSAzMSAtNjcgNzkgLTExNyAxNDQgLTE0OCA0MCAtMjAgNjUgLTI1IDEzNCAtMjUgNzMgMCA5MiA0CjEzNSAyNyAxMDggNTcgMTY1IDE0NiAxNjUgMjU5IDAgNzcgLTMyIDE1MiAtODMgMTk1IC03OSA2NyAtMjAwIDk1IC0yOTUgNjl6Cm0xNTggLTI1IGM3OSAtNDAgMTIyIC0xMjkgMTIyIC0yNTIgMCAtMjI4IC0xODAgLTM0MyAtMzE4IC0yMDQgLTk4IDk4IC0xMTQKMjk0IC0zMyA0MDcgNDYgNjYgMTUyIDg4IDIyOSA0OXoiLz4KPHBhdGggZD0iTTc1OTAgODE0IGMtNjEgLTIyIC04OCAtMzkgLTEwOSAtNjkgLTIwIC0yOSAtMjMgLTQ0IC0xOSAtOTAgNiAtNzAKMjggLTk0IDEyOCAtMTQ1IDEyMyAtNjIgMTU4IC0xMTMgMTI1IC0xODQgLTIxIC00NSAtNzMgLTcwIC0xMjMgLTYxIC00NCA4Ci0xMDcgNzAgLTExNyAxMTQgLTEyIDU0IC0yNiAzNCAtMjMgLTMxIDMgLTU4IDUgLTY0IDMyIC03NiAxNSAtOCA1NSAtMTYgODcKLTE5IDEwNiAtMTAgMTg1IDM5IDIwOSAxMjggMjUgOTEgLTE1IDE1MiAtMTM1IDIwOSAtNDYgMjIgLTkzIDUyIC0xMDQgNjYgLTUwCjYzIC03IDE0NCA3NiAxNDQgNjAgMCA4MSAtMTQgMTA0IC02NiAxMSAtMjQgMjIgLTQ0IDI0IC00NCAzIDAgNSAyMyA1IDUwIDAKNDQgLTMgNTIgLTI1IDYwIC0zMiAxMiAtMTE2IDIxIC0xMzUgMTR6Ii8+CjxwYXRoIGQ9Ik04NzUxIDc5OSBjLTE5NyAtNTEyIC0xOTkgLTUxNSAtMjQxIC01MjQgLTU2IC0xMiAtMzEgLTIwIDY1IC0yMCA1MgowIDk1IDMgOTUgOCAwIDQgLTExIDcgLTI0IDcgLTQ2IDAgLTUxIDIyIC0yNCAxMDcgbDI0IDc4IDg2IDMgODYgMyAyMiAtNTgKYzEyIC0zMiAyNCAtNzMgMjcgLTkwIDUgLTMxIDMgLTMzIC0yNiAtMzkgLTE3IC00IC0yOSAtOSAtMjcgLTEyIDYgLTUgMjI2IC05CjIzMiAtMyAyIDIgLTExIDExIC0yOSAyMCAtMzUgMTggLTQ2IDQwIC0xNzcgMzY0IC0zOCA5MyAtNzEgMTcxIC03NCAxNzQgLTMgMwotMTAgLTUgLTE1IC0xOHogbTE4IC0yMjIgYzE3IC00MyAzMSAtODAgMzEgLTgyIDAgLTMgLTMxIC01IC03MCAtNSAtMzggMCAtNzAKNCAtNzAgOSAwIDUgMTEgNDAgMjUgNzcgMTQgMzggMjggNzUgMzEgODMgNyAyMiAyMCAzIDUzIC04MnoiLz4KPHBhdGggZD0iTTI1MCA4MDEgYzAgLTYgMTEgLTExIDI0IC0xMSA0NCAwIDQ3IC0xMyA0NCAtMjY2IGwtMyAtMjM5IC0zMiAtMTAKYy0xOCAtNSAtMzMgLTEyIC0zMyAtMTUgMCAtMyA1MiAtNSAxMTUgLTUgNjMgMCAxMTUgMiAxMTUgNSAwIDMgLTE1IDEwIC0zMgoxNSBsLTMzIDEwIDAgMTIwIDAgMTIwIDI3IDMgYzMxIDQgNDggLTE5IDExNiAtMTU0IDYxIC0xMTkgNTcgLTExNiAxNDAgLTExOAo0MCAtMSA3MiAyIDcyIDYgMCA1IC04IDggLTE4IDggLTI2IDAgLTUyIDMyIC0xMTIgMTQwIC0yOSA1MiAtNTkgMTAzIC02OCAxMTMKLTggOSAtMTMgMTggLTExIDIwIDIgMSAyMSAxMCA0MSAxOSA0OSAyMyA3MSA1OSA3MCAxMTQgMCA1MCAtMTkgODUgLTU5IDExMQotMjMgMTUgLTU1IDE5IC0xOTUgMjEgLTExNiAzIC0xNjggMCAtMTY4IC03eiBtMzAzIC01MSBjMjMgLTI2IDI3IC0zOSAyNyAtODkKMCAtNTAgLTQgLTYyIC0yNiAtODQgLTI3IC0yNyAtNzMgLTQxIC0xMTUgLTM1IC0yNCAzIC0yNCA1IC0yNyAxMjEgLTMgMTE0IC0yCjExOCAyMCAxMjYgMzUgMTMgOTAgLTUgMTIxIC0zOXoiLz4KPHBhdGggZD0iTTg1MCA4MDAgYzAgLTUgOSAtMTAgMTkgLTEwIDUxIDAgNTEgLTEgNTIgLTE3OSAwIC0yNTIgMTMgLTI5NCA5NQotMzM2IDU5IC0zMCAxODcgLTMzIDI0OCAtNyA4MCAzNiA4NiA1NSA4NiAyNzkgMCAyMTAgNiAyNDMgNDQgMjQzIDE0IDAgMjggNQozMSAxMCA0IDYgLTI3IDEwIC04NSAxMCAtNTggMCAtODkgLTQgLTg1IC0xMCAzIC01IDE3IC0xMCAzMCAtMTAgNDIgMCA0NiAtMjYKNDMgLTI0MCAtMyAtMTgzIC01IC0yMDEgLTI0IC0yMjcgLTI5IC00MCAtNzAgLTU3IC0xMzQgLTU3IC02MyAwIC0xMTEgMjIKLTEzNyA2MSAtMTUgMjMgLTE4IDU2IC0yMSAyMjQgLTQgMjEzIDEgMjM5IDQzIDIzOSAxMyAwIDI3IDUgMzAgMTAgNCA2IC0zNwoxMCAtMTE0IDEwIC03NCAwIC0xMjEgLTQgLTEyMSAtMTB6Ii8+CjxwYXRoIGQ9Ik0yMTQwIDgwMCBjMCAtNSAxMSAtMTAgMjQgLTEwIDQ0IDAgNDcgLTEzIDQ0IC0yNjYgbC0zIC0yMzkgLTMyIC0xMApjLTE4IC01IC0zMyAtMTIgLTMzIC0xNSAwIC0zIDUyIC01IDExNSAtNSA2MyAwIDExNSAyIDExNSA1IDAgMyAtMTUgMTAgLTMyCjE1IGwtMzMgMTAgLTMgMTI4IC0zIDEyNyAxMzAgMCBjMTA4IDAgMTMwIC0zIDEzNSAtMTYgOCAtMjEgNiAtMTgyIC0zIC0yMTQKLTQgLTE3IC0xOCAtMjkgLTQxIC0zNyAtMTkgLTcgLTMyIC0xMiAtMjcgLTEzIDI3IC01IDIyOSAtMiAyMzQgNCAzIDMgLTUgNgotMjAgNiAtNTUgMCAtNTcgMTAgLTU3IDI2NCAwIDI0NSAyIDI1NiA0NiAyNTYgMTMgMCAyNiA1IDI5IDEwIDQgNiAtMzcgMTAKLTExNSAxMCAtMTEzIDAgLTE0OCAtMTAgLTgyIC0yMyAyNSAtNSAzMCAtMTIgMzUgLTQ0IDExIC02MyA4IC0xNDggLTYgLTE2NgotMTEgLTE1IC0yOCAtMTcgLTEzMiAtMTUgbC0xMjAgMyAtMyA5OSBjLTMgMTA2IDQgMTI2IDQ0IDEyNiAxMyAwIDI0IDUgMjQgMTAKMCA2IC00NSAxMCAtMTE1IDEwIC03MCAwIC0xMTUgLTQgLTExNSAtMTB6Ii8+CjxwYXRoIGQ9Ik0yODUwIDgwMCBjMCAtNSAxMCAtMTAgMjMgLTEwIDUxIC0xIDUyIC00IDU1IC0yMzggMyAtMjQzIC0xIC0yNjkKLTQ4IC0yNzggLTY3IC0xNCAtMjAgLTE5IDE3MSAtMTkgMjI2IDAgMjEyIC01IDIyMiA4NSA2IDQ2IDUgNTIgLTYgMzUgLTYgLTExCi0yOCAtMzcgLTQ4IC01NyAtMzYgLTM3IC0zOSAtMzggLTEwOCAtMzggLTk2IDAgLTEwMyAxMSAtOTkgMTUxIGwzIDEwNCA2MiAzCmM1NiAzIDY2IDAgODggLTIyIDE0IC0xNCAyNSAtMzQgMjUgLTQ2IDAgLTExIDUgLTIwIDEwIC0yMCA2IDAgMTAgMzkgOSA5OCAwCjk2IDAgOTcgLTE2IDY1IC0xMCAtMTkgLTI4IC0zNiAtNDYgLTQzIC00MCAtMTQgLTExMCAtMTMgLTEyNSAyIC0xNiAxNiAtMTYKMTkwIDAgMjA2IDE1IDE1IDEwMiAxNSAxNDggLTEgMjAgLTcgNDMgLTI1IDU1IC00NCAxMSAtMTggMjMgLTMyIDI4IC0zMyA0IDAKNyAyNSA3IDU1IGwwIDU1IC0yMDUgMCBjLTEzMCAwIC0yMDUgLTQgLTIwNSAtMTB6Ii8+CjxwYXRoIGQ9Ik0zMzg1IDgwMCBjMyAtNSAxNiAtMTAgMjkgLTEwIDQ0IDAgNDYgLTExIDQ2IC0yNTYgMCAtMjQ4IC0zIC0yNjQKLTUxIC0yNjQgLTEwIDAgLTE5IC0zIC0xOSAtNyAwIC01IDUyIC04IDExNSAtOCA2MyAwIDExNSAyIDExNSA1IDAgMyAtMTUgMTAKLTMyIDE1IGwtMzMgMTAgLTMgMTIzIC0zIDEyMyAzMyAtMyBjMzEgLTMgMzcgLTEwIDk1IC0xMTggODcgLTE2MiA3NiAtMTUyCjE2MSAtMTU0IDQwIC0xIDcyIDIgNzIgNiAwIDUgLTggOCAtMTggOCAtMjYgMCAtNTIgMzIgLTEwNyAxMzAgLTI3IDQ3IC01NyA5OAotNjggMTEzIC0xMCAxNiAtMTggMjkgLTE2IDMxIDIgMSAxOSA4IDM3IDE2IDUwIDE5IDcyIDU0IDcyIDExMiAwIDYyIC0yNSAxMDAKLTgwIDEyMiAtMzEgMTIgLTc2IDE2IC0xOTYgMTYgLTEwMSAwIC0xNTMgLTMgLTE0OSAtMTB6IG0zMDMgLTQ0IGMyMCAtMjAgMjcKLTM4IDMwIC04NCA0IC01NCAyIC02MiAtMjUgLTkyIC0yNSAtMjggLTM1IC0zMiAtODMgLTMzIGwtNTUgLTIgLTMgMTE4IGMtMwoxMTQgLTIgMTE4IDIwIDEyNiAzMiAxMiA4NyAtNCAxMTYgLTMzeiIvPgo8cGF0aCBkPSJNNDAwMCA4MDAgYzAgLTUgMTEgLTEwIDI0IC0xMCA0NCAwIDQ3IC0xMyA0NCAtMjY2IGwtMyAtMjM5IC0zMiAtMTAKYy0xOCAtNSAtMzMgLTEyIC0zMyAtMTUgMCAtOCAyMjggLTUgMjM2IDMgNCA0IC00IDcgLTE3IDcgLTU0IDAgLTYwIDE0IC01NwoxNDUgbDMgMTIwIDYwIDIgYzY4IDMgODYgLTYgMTA4IC01NyAxNSAtMzQgMTUgLTMzIDE2IDYzIDEgNjMgLTMgOTYgLTkgOTIgLTUKLTMgLTEwIC0xMiAtMTAgLTIwIDAgLTcgLTEyIC0yMyAtMjcgLTM1IC0yMSAtMTcgLTM4IC0yMCAtODIgLTE4IGwtNTYgMyAtMwo5OSBjLTIgNjQgMSAxMDMgOSAxMTIgMTQgMTYgNzggMTggMTMxIDQgMzQgLTEwIDUzIC0yNyA4NSAtNzYgMTAgLTE2IDEyIC05CjEyIDQ0IGwxIDYyIC0yMDAgMCBjLTEyNyAwIC0yMDAgLTQgLTIwMCAtMTB6Ii8+CjxwYXRoIGQ9Ik01MjY1IDgwMCBjMyAtNSAxNyAtMTAgMzAgLTEwIDE0IDAgMjkgLTggMzUgLTE5IDYgLTEyIDEwIC0xMDcgMTAKLTIzOCAwIC0yNDAgLTUgLTI2MyAtNTcgLTI2MyAtMTUgMCAtMjMgLTMgLTIwIC03IDEwIC05IDIyOCAtMTAgMjM0IDAgMiA0IC03CjcgLTIxIDcgLTQ0IDAgLTU2IDMyIC01NiAxNDggMCAxMTAgNSAxMjAgNTMgMTA4IDE3IC00IDQxIC0zOSA5MyAtMTM3IGw3MAotMTMyIDc3IC0yIGM4MiAtMSA5NiA1IDQ2IDIwIC0yNiA4IC00MyAzMCAtMTAxIDEzMCAtMzggNjYgLTc0IDEyMiAtNzkgMTI2Ci02IDMgMTAgMTYgMzUgMjkgNzUgMzYgOTkgMTE2IDU2IDE4NSAtMzMgNTQgLTc3IDY1IC0yNTYgNjUgLTEwMSAwIC0xNTMgLTMKLTE0OSAtMTB6IG0zMDIgLTQ1IGM0NSAtNTIgNDEgLTE1MSAtOCAtMTg3IC0zMyAtMjUgLTEwNCAtMzUgLTEyNCAtMTggLTExIDEwCi0xNSAzNSAtMTUgMTA5IDAgOTggOCAxMjQgNDAgMTMzIDI4IDkgODUgLTExIDEwNyAtMzd6Ii8+CjxwYXRoIGQ9Ik01OTQ2IDgwMCBjLTMzIC02IC02NSAtMTUgLTcwIC0yMSAtOCAtNyAtMyAtOCAxNyAtNCA1NSAxNCA1NyA1IDU3Ci0yNDYgMCAtMjQzIC0zIC0yNTkgLTUxIC0yNTkgLTEwIDAgLTE5IC0zIC0xOSAtNyAwIC0xMSAzMTYgLTkgMzYwIDEgMTI3IDMwCjIxMCAxMzkgMjEwIDI3NiAwIDEwMiAtNjYgMTk3IC0xNjkgMjQzIC01MyAyMyAtMjM1IDMyIC0zMzUgMTd6IG0yNzMgLTMwCmMxNTUgLTc5IDE4NSAtMzI2IDUzIC00NDEgLTQ3IC00MSAtOTEgLTU5IC0xNDcgLTU5IC0zMiAwIC01MSA2IC02NSAyMCAtMTkKMTkgLTIwIDMzIC0yMCAyNDggMCAxMjUgNCAyMzIgOCAyMzggNCA2IDE0IDE0IDIyIDE3IDI1IDEwIDExMCAtMyAxNDkgLTIzeiIvPgo8cGF0aCBkPSJNNjkwMCA4MDAgYzAgLTUgMTEgLTEwIDI0IC0xMCA0NCAwIDQ3IC0xMyA0NCAtMjY2IGwtMyAtMjM5IC0zMiAtMTAKYy0xOCAtNSAtMzMgLTEyIC0zMyAtMTUgMCAtNyAzOTcgLTYgNDA1IDIgMTAgMTAgMjMgMTE4IDE0IDExOCAtNSAwIC0xNSAtMTMKLTI0IC0yOSAtMjcgLTU0IC02MCAtNzEgLTEzNiAtNzEgLTk3IDAgLTEwMCA1IC05NyAxNDQgbDMgMTExIDQ5IDMgYzc1IDUgOTUKLTMgMTE1IC00OSBsMTggLTQwIDcgOTIgYzQgNTAgNSA5MyAyIDk2IC0yIDIgLTEwIC04IC0xOCAtMjMgLTE3IC0zNiAtNTIgLTU0Ci0xMDUgLTU0IC03MyAwIC03MyAxIC03MyAxMTAgMCAxMTggNSAxMjUgODggMTE3IDczIC02IDExMCAtMjQgMTI4IC01OSAyMAotMzkgMzQgLTM1IDM0IDExIDAgNzQgMTAgNzEgLTIxMSA3MSAtMTI2IDAgLTE5OSAtNCAtMTk5IC0xMHoiLz4KPHBhdGggZD0iTTk3NTAgODAwIGMwIC01IDEwIC0xMCAyMyAtMTAgNDUgMCA0NyAtMTEgNDcgLTI1NCAwIC0xMjcgLTQgLTIzNgotOCAtMjQzIC00IC02IC0yMCAtMTUgLTM1IC0xOCAtMTUgLTQgLTI3IC0xMCAtMjcgLTE0IDAgLTggMzk2IC04IDQwNSAxIDQgMwo5IDM1IDEyIDcwIGw1IDYzIC0yNyAtNDMgYy0zNCAtNTQgLTY5IC03MiAtMTQ0IC03MiAtODggMCAtOTIgNyAtODkgMTQ0IGwzCjExMSA0OSAzIGM3NiA1IDk1IC0zIDExNSAtNTEgbDE4IC00MiA1IDk1IGMzIDUyIDQgOTYgMyA5OCAtMSAyIC0xMiAtMTMgLTIzCi0zMiAtMjMgLTM4IC01NyAtNTAgLTEyNyAtNDQgbC00MCAzIC0zIDEwNCBjLTMgMTE3IC0xIDEyMSA2MyAxMjEgODAgMCAxMjkKLTIzIDE2MiAtNzYgMTAgLTE2IDEyIC0xMCAxMiAzOSBsMSA1NyAtMjAwIDAgYy0xMjcgMCAtMjAwIC00IC0yMDAgLTEweiIvPgo8L2c+Cjwvc3ZnPgo=" class="brand-logo-img" alt="Sullivan Rutherford Estate" />
+
+        <div class="brand-title-group">
+          <h1 id="title-text">Data Requirements Specification</h1>
+          <p id="subtitle-text">Technical Integration Guide &bull; Sales vs. Plan Engine</p>
+        </div>
+      </div>
+
+      <div class="header-controls no-print">
+        <div class="lang-switcher">
+          <button class="lang-btn active" id="btn-lang-en" onclick="setLanguage('en')">English (STE)</button>
+          <button class="lang-btn" id="btn-lang-es" onclick="setLanguage('es')">Español (STE)</button>
+        </div>
+
+        <button class="action-btn" onclick="window.print()">
+          <svg width="15" height="15" fill="currentColor" viewBox="0 0 16 16"><path d="M2.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"/><path d="M5 1a2 2 0 0 0-2 2v2H2a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1V3a2 2 0 0 0-2-2H5zM4 3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2H4V3zm1 5a2 2 0 0 0-2 2v1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v-1a2 2 0 0 0-2-2H5zm7 2v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1z"/></svg>
+          <span id="print-btn-text">Print / PDF</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================================================================
+       SUB-NAVIGATION
+       ======================================================================== -->
+  <nav class="subnav-band no-print">
+    <div class="subnav-container">
+      <a href="#diagnosis" class="subnav-link active" id="nav-diagnosis">1. Executive Audit</a>
+      <a href="#critical-gaps" class="subnav-link" id="nav-gaps">2. Five Critical Gaps</a>
+      <a href="#file-architecture" class="subnav-link" id="nav-arch">3. File Architecture</a>
+      <a href="#data-dictionaries" class="subnav-link" id="nav-dict">4. Data Dictionaries</a>
+      <a href="#sample-data" class="subnav-link" id="nav-samples">5. Sample CSV Data</a>
+      <a href="#channel-rules" class="subnav-link" id="nav-channels">6. Channel Mapping</a>
+      <a href="#action-checklist" class="subnav-link" id="nav-actions">7. Action Checklist</a>
+    </div>
+  </nav>
+
+  <!-- ========================================================================
+       MAIN BODY CONTENT
+       ======================================================================== -->
+  <main class="main-container">
+
+    <!-- ASD-STE100 Compliance Note -->
+    <aside class="ste-banner">
+      <div class="ste-icon">&#9432;</div>
+      <div class="ste-content">
+        <h3 id="ste-badge-title">ASD-STE100 Simplified Technical English Standard</h3>
+        <p id="ste-badge-desc">
+          This document follows the ASD-STE100 standard. Sentences are short (maximum 20 words). 
+          Vocabulary is restricted to avoid ambiguity. Follow each requirement exactly to permit automated data ingestion.
+        </p>
+      </div>
+    </aside>
+
+    <!-- SECTION 1: EXECUTIVE AUDIT & VERDICT -->
+    <section id="diagnosis" class="card">
+      <div class="card-header">
+        <h2 id="diag-header-title">1. Technical Audit and System Verdict</h2>
+        <span class="badge badge-error" id="diag-status-badge">CURRENT DATA STATUS: INSUFFICIENT</span>
+      </div>
+
+      <p class="lead" id="diag-lead-text">
+        The technical team completed an audit of the files in the Sullivan project workspace. 
+        The current data does not permit the generation of the Comparative vs. Plan Dashboard.
+      </p>
+
+      <div class="grid-3">
+        <div class="feature-box critical">
+          <span class="feature-num" id="diag-box1-badge">CRITICAL DEFECT 1</span>
+          <h4 id="diag-box1-title">Missing Weekly Budget</h4>
+          <p id="diag-box1-text">
+            Financial P&L statements contain only high-level monthly totals. 
+            There is no weekly budget broken down by SKU and sales channel.
+          </p>
+          <div class="feature-meta" id="diag-box1-meta">Impact: Math cannot calculate % plan achievement or dollar variances.</div>
+        </div>
+
+        <div class="feature-box critical">
+          <span class="feature-num" id="diag-box2-badge">CRITICAL DEFECT 2</span>
+          <h4 id="diag-box2-title">No Continuous History</h4>
+          <p id="diag-box2-text">
+            The workspace contains only isolated transactions for April 2026 and one week in August 2026. 
+            All 2025 transactions are missing.
+          </p>
+          <div class="feature-meta" id="diag-box2-meta">Impact: Engine cannot calculate WoW, YoY, YTD, or 52-week trends.</div>
+        </div>
+
+        <div class="feature-box critical">
+          <span class="feature-num" id="diag-box3-badge">CRITICAL DEFECT 3</span>
+          <h4 id="diag-box3-title">Disconnected Data Silos</h4>
+          <p id="diag-box3-text">
+            Commerce7 DTC orders, Wholesale Open POs, and Tock tasting bookings exist in separate unlinked formats.
+          </p>
+          <div class="feature-meta" id="diag-box3-meta">Impact: Consolidated winery volume and revenue remain fragmented.</div>
+        </div>
+      </div>
+
+      <!-- Inventory Table of Current Files -->
+      <h3 style="font-family: var(--font-serif); color: var(--brand-navy); margin: 24px 0 12px;" id="diag-table-title">Audit Summary of Received Files</h3>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th id="th-inv-file">Received File</th>
+              <th id="th-inv-type">Content Type</th>
+              <th id="th-inv-diag">Technical Diagnosis</th>
+              <th id="th-inv-status">Supports Plan Comparison?</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>Apr_OrderSales.xlsx</code></td>
+              <td id="td-inv-1-type">583 DTC sales transactions (April 2026)</td>
+              <td id="td-inv-1-diag">Good transactional base. Covers only one isolated month.</td>
+              <td><span class="badge badge-warning" id="td-inv-1-status">Partial (Actuals Only)</span></td>
+            </tr>
+            <tr>
+              <td><code>Apr_FinancialReport.xlsx</code></td>
+              <td id="td-inv-1b-type">Order-level financial summary</td>
+              <td id="td-inv-1b-diag">Financial reconciliation control file. Redundant with OrderSales.</td>
+              <td><span class="badge badge-error" id="td-inv-1b-status">No (No Budget)</span></td>
+            </tr>
+            <tr>
+              <td><code>Weekly/Week_2026_08_23/</code></td>
+              <td id="td-inv-2-type">66 DTC orders, 4 POs, depletions, Tock bookings</td>
+              <td id="td-inv-2-diag">One isolated week in August 2026. Disconnected from prior weeks.</td>
+              <td><span class="badge badge-error" id="td-inv-2-status">No (Isolated Week)</span></td>
+            </tr>
+            <tr>
+              <td><code>Sullivan_SKU_Map.xlsx</code></td>
+              <td id="td-inv-3-type">Product cross-reference across platforms</td>
+              <td id="td-inv-3-diag">Excellent master mapping. Normalizes wine commercial names.</td>
+              <td><span class="badge badge-info" id="td-inv-3-status">Master Reference</span></td>
+            </tr>
+            <tr>
+              <td><code>April_C7_Data_Guide.xlsx</code></td>
+              <td id="td-inv-4-type">Commerce7 classification business logic</td>
+              <td id="td-inv-4-diag">Official channel taxonomy guide. Must be applied to all records.</td>
+              <td><span class="badge badge-info" id="td-inv-4-status">Classification Rulebook</span></td>
+            </tr>
+            <tr>
+              <td><code>2025_P&L_and_Cash_flow/</code></td>
+              <td id="td-inv-5-type">QuickBooks financial statements and cash projections</td>
+              <td id="td-inv-5-diag">High-level accounting totals. No weekly breakdown by SKU or channel.</td>
+              <td><span class="badge badge-error" id="td-inv-5-status">No (Accounting Only)</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 2: THE 5 CRITICAL GAPS -->
+    <section id="critical-gaps" class="card">
+      <div class="card-header">
+        <h2 id="gaps-header-title">2. Five Critical Data Gaps Sullivan Must Resolve</h2>
+        <span class="section-badge" id="gaps-section-badge">Actionable Requirements</span>
+      </div>
+
+      <div class="grid-2">
+        <!-- Gap 1 -->
+        <div class="feature-box">
+          <span class="feature-num">GAP 01</span>
+          <h4 id="gap1-title">Deliver Weekly Plan / Budget File</h4>
+          <p id="gap1-text">
+            Sullivan must provide a budget file structured by ISO week (e.g. <code>2026-W16</code>), 
+            canonical wine product name, sales channel, target bottles, and target net revenue in USD.
+          </p>
+          <ul class="rules-list" id="gap1-list">
+            <li>Define targets for each commercial channel.</li>
+            <li>Define targets for each primary wine SKU.</li>
+            <li>Do not supply monthly totals without weekly allocation.</li>
+          </ul>
+        </div>
+
+        <!-- Gap 2 -->
+        <div class="feature-box">
+          <span class="feature-num">GAP 02</span>
+          <h4 id="gap2-title">Deliver Continuous Historical Sales Data</h4>
+          <p id="gap2-text">
+            The analytics engine requires historical continuity to calculate comparative trends.
+          </p>
+          <ul class="rules-list" id="gap2-list">
+            <li>Provide all 52 weeks of calendar year 2025.</li>
+            <li>Provide all continuous weeks of 2026 up to current week.</li>
+            <li>Do not omit quiet weeks. Record zero volume weeks explicitly.</li>
+          </ul>
+        </div>
+
+        <!-- Gap 3 -->
+        <div class="feature-box">
+          <span class="feature-num">GAP 03</span>
+          <h4 id="gap3-title">Unify Commercial Sales Channels</h4>
+          <p id="gap3-text">
+            Consolidate DTC orders (Commerce7), wholesale invoices (distributors), 
+            and tasting experiences (Tock) into one unified row-level table.
+          </p>
+          <ul class="rules-list" id="gap3-list">
+            <li>Every row must represent one sold product line.</li>
+            <li>Include date, product SKU, channel, volume, and net revenue.</li>
+          </ul>
+        </div>
+
+        <!-- Gap 4 -->
+        <div class="feature-box">
+          <span class="feature-num">GAP 04</span>
+          <h4 id="gap4-title">Standardize Channel Names (Commerce7 Logic)</h4>
+          <p id="gap4-text">
+            Apply Sullivan's official classification rules from <code>April_C7_Data_Guide.xlsx</code>.
+          </p>
+          <ul class="rules-list" id="gap4-list">
+            <li>Map POS orders to <code>Tasting Room</code>.</li>
+            <li>Map Club orders to <code>Estate Club</code> or <code>Founder's Club</code>.</li>
+            <li>Classify Inbound tags into <code>Telesales</code>, <code>Event</code>, or <code>Corporate</code>.</li>
+          </ul>
+        </div>
+
+        <!-- Gap 5 -->
+        <div class="feature-box" style="grid-column: 1 / -1;">
+          <span class="feature-num">GAP 05</span>
+          <h4 id="gap5-title">Isolate Physical Bottles from Service Fees and Discounts</h4>
+          <p id="gap5-text">
+            Transaction exports contain wine tastings, event fees, and shipping surcharges. 
+            Add a mandatory <code>Categoria_Negocio</code> column to distinguish physical bottles.
+          </p>
+          <ul class="rules-list" id="gap5-list">
+            <li>Assign <code>Producto (Botellas)</code> to physical wine bottles.</li>
+            <li>Assign <code>Experiencias / Tastings</code> to tasting reservations.</li>
+            <li>Assign <code>Servicios / Cuotas</code> to shipping and processing fees.</li>
+            <li>This isolation prevents distortion of bottle volume and average bottle price.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 3: FILE ARCHITECTURE -->
+    <section id="file-architecture" class="card">
+      <div class="card-header">
+        <h2 id="arch-header-title">3. Official File Delivery Architecture</h2>
+        <span class="section-badge" id="arch-section-badge">Standard CSV Layout</span>
+      </div>
+
+      <p class="lead" id="arch-lead-text">
+        Place three CSV files in the designated input directory. 
+        The engine will ingest these files automatically:
+      </p>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th id="th-arch-file">File Name</th>
+              <th id="th-arch-priority">Priority</th>
+              <th id="th-arch-purpose">Purpose and Engine Function</th>
+              <th id="th-arch-sample">Reference Sample in Repo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code class="col-name">sullivan_ventas_reales.csv</code></td>
+              <td><span class="badge badge-error" id="td-arch-p1">MANDATORY</span></td>
+              <td id="td-arch-d1">All actual transaction rows from 2025-01-01 to present date. Feeds actual sales and volume.</td>
+              <td><code>Pruebas_y_demos/sullivan_ventas_reales_ejemplo.csv</code></td>
+            </tr>
+            <tr>
+              <td><code class="col-name">sullivan_plan_semanal.csv</code></td>
+              <td><span class="badge badge-error" id="td-arch-p2">MANDATORY (For Plan vs Actual)</span></td>
+              <td id="td-arch-d2">Weekly budget targets by week, SKU, and sales channel. Calculates variances and % plan achieved.</td>
+              <td><code>Pruebas_y_demos/sullivan_plan_semanal_ejemplo.csv</code></td>
+            </tr>
+            <tr>
+              <td><code class="col-name">sullivan_catalogo_sku.csv</code></td>
+              <td><span class="badge badge-info" id="td-arch-p3">RECOMMENDED</span></td>
+              <td id="td-arch-d3">Master wine product catalog. Provides standard bottle ML size, list price, and unit COGS.</td>
+              <td><code>Pruebas_y_demos/sullivan_catalogo_sku_costos_ejemplo.csv</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 4: DATA DICTIONARIES -->
+    <section id="data-dictionaries" class="card">
+      <div class="card-header">
+        <h2 id="dict-header-title">4. Technical Data Dictionaries (Field-by-Field Specification)</h2>
+        <span class="section-badge" id="dict-section-badge">Dictionary Standards</span>
+      </div>
+
+      <p class="lead" id="dict-lead-text">
+        Select a tab below to inspect the required columns, data types, validation rules, and sample values for each file.
+      </p>
+
+      <!-- File Tabs -->
+      <div class="file-tabs">
+        <button class="file-tab-btn active" onclick="switchTab('tab-ventas', this)" id="btn-tab-ventas">
+          <span>&#128196;</span> sullivan_ventas_reales.csv (19 Columns)
+        </button>
+        <button class="file-tab-btn" onclick="switchTab('tab-plan', this)" id="btn-tab-plan">
+          <span>&#128197;</span> sullivan_plan_semanal.csv (8 Columns)
+        </button>
+        <button class="file-tab-btn" onclick="switchTab('tab-catalogo', this)" id="btn-tab-catalogo">
+          <span>&#127863;</span> sullivan_catalogo_sku.csv (7 Columns)
+        </button>
+      </div>
+
+      <!-- TAB 1: VENTAS REALES -->
+      <div id="tab-ventas" class="tab-content active">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h4 style="font-family: var(--font-serif); color: var(--brand-navy); font-size: 1.15rem;" id="tab1-title">
+            Specification: Actual Sales Transactions (sullivan_ventas_reales.csv)
+          </h4>
+          <span class="badge badge-warning" id="tab1-badge">Each row = One line item of a customer order</span>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th id="th-v-col">Column Name</th>
+                <th id="th-v-type">Type</th>
+                <th id="th-v-req">Required</th>
+                <th id="th-v-desc">ASD-STE100 Definition &amp; Validation Rule</th>
+                <th id="th-v-sample">Sample Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="col-name">Fecha</span></td>
+                <td><span class="col-type">Date</span></td>
+                <td><span class="badge badge-error">YES</span></td>
+                <td id="v-desc-fecha">Order payment date. Use standard ISO format: <code>YYYY-MM-DD</code>.</td>
+                <td><span class="col-sample">2026-04-15</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Semana</span></td>
+                <td><span class="col-type">String</span></td>
+                <td><span class="badge badge-error">YES</span></td>
+                <td id="v-desc-semana">ISO calendar week. Use format <code>YYYY-Www</code> or integer <code>1..52</code>.</td>
+                <td><span class="col-sample">2026-W16</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Anio</span></td>
+                <td><span class="col-type">Integer</span></td>
+                <td><span class="badge badge-error">YES</span></td>
+                <td id="v-desc-anio">Four-digit transaction year. Must match date year.</td>
+                <td><span class="col-sample">2026</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">SKU</span></td>
+                <td><span class="col-type">String</span></td>
+                <td><span class="badge badge-error">YES</span></td>
+                <td id="v-desc-sku">Unique product identifier from Commerce7 or warehouse inventory.</td>
+                <td><span class="col-sample">20CS712</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Producto</span></td>
+                <td><span class="col-type">String</span></td>
+                <td><span class="badge badge-error">YES</span></td>
+                <td id="v-desc-producto">Standard commercial wine name. Matches master product catalog.</td>
+                <td><span class="col-sample">2020 Estate Cabernet Sauvignon</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Linea_Producto</span></td>
+                <td><span class="col-type">String</span></td>
+                <td><span class="badge badge-info">Optional</span></td>
+                <td id="v-desc-linea">Varietal or wine family (e.g. Cabernet Sauvignon, Merlot, Red Blend).</td>
+                <td><span class="col-sample">Cabernet Sauvignon</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Categoria_Negocio</span></td>
+                <td><span class="col-type">String</span></td>
+                <td><span class="badge badge-error">YES</span></td>
+                <td id="v-desc-cat">Item type. Use: <code>Producto (Botellas)</code>, <code>Experiencias / Tastings</code>, <code>Servicios / Cuotas</code>.</td>
+                <td><span class="col-sample">Producto (Botellas)</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Canal</span></td>
+                <td><span class="col-type">String</span></td>
+                <td><span class="badge badge-error">YES</span></td>
+                <td id="v-desc-canal">Standardized sales channel per Section 6 (e.g. Tasting Room, Estate Club, Web / Ecommerce).</td>
+                <td><span class="col-sample">Estate Club</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Cliente</span></td>
+                <td><span class="col-type">String</span></td>
+                <td><span class="badge badge-error">YES</span></td>
+                <td id="v-desc-cliente">Name of club member, walk-in guest, corporate account, or distributor.</td>
+                <td><span class="col-sample">John Smith</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Estado</span></td>
+                <td><span class="col-type">String</span></td>
+                <td><span class="badge badge-error">YES</span></td>
+                <td id="v-desc-estado">Destination US State or Region. Used for shipment distribution mapping.</td>
+                <td><span class="col-sample">California</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Botellas</span></td>
+                <td><span class="col-type">Integer</span></td>
+                <td><span class="badge badge-error">YES</span></td>
+                <td id="v-desc-botellas">Physical count of bottles sold in this line item. Must be greater than 0.</td>
+                <td><span class="col-sample">6</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Precio_Unitario</span></td>
+                <td><span class="col-type">Decimal</span></td>
+                <td><span class="badge badge-error">YES</span></td>
+                <td id="v-desc-punit">Net unit price charged per bottle in USD (after discounts, before taxes).</td>
+                <td><span class="col-sample">125.00</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Venta_Neta</span></td>
+                <td><span class="col-type">Decimal</span></td>
+                <td><span class="badge badge-error">YES</span></td>
+                <td id="v-desc-vneta">Total line revenue in USD without tax and shipping (<code>Botellas * Precio_Unitario</code>).</td>
+                <td><span class="col-sample">750.00</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Impuestos</span></td>
+                <td><span class="col-type">Decimal</span></td>
+                <td><span class="badge badge-info">Optional</span></td>
+                <td id="v-desc-tax">Sales and excise tax collected on this line in USD.</td>
+                <td><span class="col-sample">58.13</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Venta_Total</span></td>
+                <td><span class="col-type">Decimal</span></td>
+                <td><span class="badge badge-info">Optional</span></td>
+                <td id="v-desc-vtot">Gross collected amount including net revenue, tax, and allocated shipping.</td>
+                <td><span class="col-sample">808.13</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Costo_Unitario</span></td>
+                <td><span class="col-type">Decimal</span></td>
+                <td><span class="badge badge-info">Optional</span></td>
+                <td id="v-desc-cunit">Cost of goods sold (COGS) per bottle in USD. Enables margin analytics.</td>
+                <td><span class="col-sample">36.50</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Margen_Dolares</span></td>
+                <td><span class="col-type">Decimal</span></td>
+                <td><span class="badge badge-info">Optional</span></td>
+                <td id="v-desc-margen">Gross profit in USD: <code>Venta_Neta - (Botellas * Costo_Unitario)</code>.</td>
+                <td><span class="col-sample">531.00</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Cajas_9L</span></td>
+                <td><span class="col-type">Decimal</span></td>
+                <td><span class="badge badge-info">Optional</span></td>
+                <td id="v-desc-cajas">Nine-liter case equivalent: <code>(Botellas * Tamano_ML) / 9000</code>.</td>
+                <td><span class="col-sample">0.500</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Estatus</span></td>
+                <td><span class="col-type">String</span></td>
+                <td><span class="badge badge-info">Optional</span></td>
+                <td id="v-desc-estatus">Order status. Use <code>Vigente</code> or <code>Completada</code>. Engine ignores cancelled rows.</td>
+                <td><span class="col-sample">Vigente</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB 2: PLAN SEMANAL -->
+      <div id="tab-plan" class="tab-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h4 style="font-family: var(--font-serif); color: var(--brand-navy); font-size: 1.15rem;" id="tab2-title">
+            Specification: Weekly Budget / Target Plan (sullivan_plan_semanal.csv)
+          </h4>
+          <span class="badge badge-error" id="tab2-badge">Mandatory to generate Plan vs Real KPIs</span>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th id="th-p-col">Column Name</th>
+                <th id="th-p-type">Type</th>
+                <th id="th-p-req">Required</th>
+                <th id="th-p-desc">ASD-STE100 Definition &amp; Validation Rule</th>
+                <th id="th-p-sample">Sample Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="col-name">Anio</span></td>
+                <td><span class="col-type">Integer</span></td>
+                <td><span class="badge badge-error">YES</span></td>
+                <td id="p-desc-anio">Four-digit budget year. Example: <code>2026</code>.</td>
+                <td><span class="col-sample">2026</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Semana</span></td>
+                <td><span class="col-type">String</span></td>
+                <td><span class="badge badge-error">YES</span></td>
+                <td id="p-desc-semana">ISO budget week code. Must strictly use format <code>YYYY-Www</code>.</td>
+                <td><span class="col-sample">2026-W01</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Producto</span></td>
+                <td><span class="col-type">String</span></td>
+                <td><span class="badge badge-error">YES</span></td>
+                <td id="p-desc-prod">Wine product name or wine line planned for this week.</td>
+                <td><span class="col-sample">2020 Estate Cabernet Sauvignon</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Canal</span></td>
+                <td><span class="col-type">String</span></td>
+                <td><span class="badge badge-error">YES</span></td>
+                <td id="p-desc-canal">Target sales channel (Tasting Room, Estate Club, Founder's Club, Web, Wholesale).</td>
+                <td><span class="col-sample">Estate Club</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Plan_Botellas</span></td>
+                <td><span class="col-type">Decimal / Int</span></td>
+                <td><span class="badge badge-error">YES</span></td>
+                <td id="p-desc-bot">Budgeted quantity of physical bottles for this week, product, and channel.</td>
+                <td><span class="col-sample">21</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Plan_Venta_Neta</span></td>
+                <td><span class="col-type">Decimal</span></td>
+                <td><span class="badge badge-error">YES</span></td>
+                <td id="p-desc-vneta">Budgeted net sales in USD without tax and shipping.</td>
+                <td><span class="col-sample">2152.50</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Plan_Margen_Dolares</span></td>
+                <td><span class="col-type">Decimal</span></td>
+                <td><span class="badge badge-info">Optional</span></td>
+                <td id="p-desc-margen">Budgeted gross margin in USD for this row.</td>
+                <td><span class="col-sample">1386.00</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Plan_Cajas_9L</span></td>
+                <td><span class="col-type">Decimal</span></td>
+                <td><span class="badge badge-info">Optional</span></td>
+                <td id="p-desc-cajas">Budgeted 9-liter case volume: <code>(Plan_Botellas * 0.75) / 9.0</code>.</td>
+                <td><span class="col-sample">1.75</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB 3: CATALOGO SKU -->
+      <div id="tab-catalogo" class="tab-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h4 style="font-family: var(--font-serif); color: var(--brand-navy); font-size: 1.15rem;" id="tab3-title">
+            Specification: Master SKU Catalog &amp; Standard Costs (sullivan_catalogo_sku.csv)
+          </h4>
+          <span class="badge badge-info" id="tab3-badge">Recommended for automated margin calculation</span>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th id="th-c-col">Column Name</th>
+                <th id="th-c-type">Type</th>
+                <th id="th-c-req">Required</th>
+                <th id="th-c-desc">ASD-STE100 Definition &amp; Validation Rule</th>
+                <th id="th-c-sample">Sample Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="col-name">SKU</span></td>
+                <td><span class="col-type">String</span></td>
+                <td><span class="badge badge-error">YES</span></td>
+                <td id="c-desc-sku">Unique SKU identifier in Commerce7 and warehouse ERP.</td>
+                <td><span class="col-sample">20CS712</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Producto</span></td>
+                <td><span class="col-type">String</span></td>
+                <td><span class="badge badge-error">YES</span></td>
+                <td id="c-desc-prod">Canonical wine product title for executive reporting.</td>
+                <td><span class="col-sample">2020 Estate Cabernet Sauvignon</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Familia</span></td>
+                <td><span class="col-type">String</span></td>
+                <td><span class="badge badge-error">YES</span></td>
+                <td id="c-desc-fam">Varietal family: Cabernet Sauvignon, Merlot, Red Blend, White Wine, Rose.</td>
+                <td><span class="col-sample">Cabernet Sauvignon</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Tamano_ML</span></td>
+                <td><span class="col-type">Integer</span></td>
+                <td><span class="badge badge-error">YES</span></td>
+                <td id="c-desc-ml">Bottle volume in milliliters. Standard bottle is <code>750</code>.</td>
+                <td><span class="col-sample">750</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Precio_Lista</span></td>
+                <td><span class="col-type">Decimal</span></td>
+                <td><span class="badge badge-error">YES</span></td>
+                <td id="c-desc-plist">Official winery retail list price in USD (MSRP).</td>
+                <td><span class="col-sample">125.00</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Costo_COGS</span></td>
+                <td><span class="col-type">Decimal</span></td>
+                <td><span class="badge badge-error">YES</span></td>
+                <td id="c-desc-cogs">Standard production cost per bottle (grape, barrel, bottling, packaging).</td>
+                <td><span class="col-sample">36.50</span></td>
+              </tr>
+              <tr>
+                <td><span class="col-name">Activo</span></td>
+                <td><span class="col-type">Boolean</span></td>
+                <td><span class="badge badge-error">YES</span></td>
+                <td id="c-desc-activo">Sales status flag: <code>True</code> if currently sold, <code>False</code> if archived/library.</td>
+                <td><span class="col-sample">True</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 5: SAMPLE CSV INSPECTION -->
+    <section id="sample-data" class="card">
+      <div class="card-header">
+        <h2 id="sample-header-title">5. Inspection of Provided Demonstration CSV Files</h2>
+        <span class="section-badge" id="sample-section-badge">Live Demonstration Records</span>
+      </div>
+
+      <p class="lead" id="sample-lead-text">
+        Three sample files are stored in the <code>Pruebas_y_demos/</code> folder. 
+        Review the actual CSV syntax and row contents below:
+      </p>
+
+      <!-- Box 1: Ventas Reales Sample -->
+      <div style="margin-bottom: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+          <h4 style="font-family: var(--font-serif); color: var(--brand-navy); font-size: 1.05rem;" id="s1-title">
+            Sample File: <code>sullivan_ventas_reales_ejemplo.csv</code> (First 4 Data Rows)
+          </h4>
+          <button class="btn-copy" onclick="copySnippet('csv-snippet-ventas', this)" id="btn-copy-v">Copy CSV</button>
+        </div>
+        <div class="csv-preview-card" id="csv-snippet-ventas">
+<div class="header-line">Fecha,Semana,Anio,SKU,Producto,Linea_Producto,Categoria_Negocio,Canal,Cliente,Estado,Botellas,Precio_Unitario,Venta_Neta,Impuestos,Venta_Total,Costo_Unitario,Margen_Dolares,Cajas_9L,Estatus</div>
+<div class="data-line">2025-01-05,2025-W01,2025,20ME712,2020 Estate Merlot,Merlot,Producto (Botellas),Founder's Club,Charles Montgomery,New York,3,68.00,204.00,12.75,216.75,25.00,129.00,0.250,Vigente</div>
+<div class="data-line">2025-01-19,2025-W03,2025,13CS712N,2013 Napa Valley Cabernet Sauvignon,Cabernet Sauvignon,Producto (Botellas),Tasting Room,Walk-in Guest,New York,1,185.00,185.00,11.56,196.56,49.00,136.00,0.083,Vigente</div>
+<div class="data-line">2025-02-03,2025-W06,2025,19CV712,2019 Coeur de Vigne Red Blend,Red Blend,Producto (Botellas),Founder's Club,Charles Montgomery,California,3,84.00,252.00,19.53,271.53,30.00,162.00,0.250,Vigente</div>
+<div class="data-line">2025-05-30,2025-W22,2025,JOSFR20,2020 J.O. Sullivan Founder Reserve,Cabernet Sauvignon,Producto (Botellas),Wholesale,RNDC Texas,Florida,36,178.75,6435.00,402.19,6837.19,88.00,3267.00,3.000,Vigente</div>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--brand-gray);" id="s1-note">
+          <strong>Key Insight:</strong> Line 4 illustrates a wholesale transaction (RNDC Texas): 36 bottles (3.0 cases 9L) 
+          at a wholesale price of $178.75 per bottle, yielding $6,435.00 net sales and $3,267.00 gross margin.
+        </p>
+      </div>
+
+      <!-- Box 2: Plan Semanal Sample -->
+      <div style="margin-bottom: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+          <h4 style="font-family: var(--font-serif); color: var(--brand-navy); font-size: 1.05rem;" id="s2-title">
+            Sample File: <code>sullivan_plan_semanal_ejemplo.csv</code> (First 4 Data Rows)
+          </h4>
+          <button class="btn-copy" onclick="copySnippet('csv-snippet-plan', this)" id="btn-copy-p">Copy CSV</button>
+        </div>
+        <div class="csv-preview-card" id="csv-snippet-plan">
+<div class="header-line">Anio,Semana,Producto,Canal,Plan_Botellas,Plan_Venta_Neta,Plan_Margen_Dolares,Plan_Cajas_9L</div>
+<div class="data-line">2026,2026-W01,2020 Estate Cabernet Sauvignon,Estate Club,21,2152.50,1386.00,1.75</div>
+<div class="data-line">2026,2026-W01,2019 Estate Cabernet Sauvignon,Founder's Club,53,5867.10,3853.10,4.42</div>
+<div class="data-line">2026,2026-W01,2020 Coeur de Vigne Red Blend,Web / Ecommerce,27,2436.75,1680.75,2.25</div>
+<div class="data-line">2026,2026-W01,2020 Estate Merlot,Wholesale,51,2384.25,1109.25,4.25</div>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--brand-gray);" id="s2-note">
+          <strong>Key Insight:</strong> Week <code>2026-W01</code> has individual target allocations for each wine and channel. 
+          When actual transactions occur in Week 1, the engine compares actual dollars against these targets.
+        </p>
+      </div>
+
+      <!-- Box 3: Catalogo SKU Sample -->
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+          <h4 style="font-family: var(--font-serif); color: var(--brand-navy); font-size: 1.05rem;" id="s3-title">
+            Sample File: <code>sullivan_catalogo_sku_costos_ejemplo.csv</code> (First 4 Data Rows)
+          </h4>
+          <button class="btn-copy" onclick="copySnippet('csv-snippet-cat', this)" id="btn-copy-c">Copy CSV</button>
+        </div>
+        <div class="csv-preview-card" id="csv-snippet-cat">
+<div class="header-line">SKU,Producto,Familia,Tamano_ML,Precio_Lista,Costo_COGS,Activo</div>
+<div class="data-line">20CS712,2020 Estate Cabernet Sauvignon,Cabernet Sauvignon,750,125.00,36.50,True</div>
+<div class="data-line">19CS712,2019 Estate Cabernet Sauvignon,Cabernet Sauvignon,750,135.00,38.00,True</div>
+<div class="data-line">20CV712,2020 Coeur de Vigne Red Blend,Red Blend,750,95.00,28.00,True</div>
+<div class="data-line">JOSFR20,2020 J.O. Sullivan Founder Reserve,Cabernet Sauvignon,750,325.00,88.00,True</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 6: COMMERCE7 CHANNEL MAPPING -->
+    <section id="channel-rules" class="card">
+      <div class="card-header">
+        <h2 id="chan-header-title">6. Commerce7 Channel Classification Rulebook</h2>
+        <span class="section-badge" id="chan-section-badge">Taxonomy Rulebook</span>
+      </div>
+
+      <p class="lead" id="chan-lead-text">
+        Sullivan defines strict channel taxonomy in <code>April_C7_Data_Guide.xlsx</code>. 
+        Raw exports must be mapped to these exact channel names in the <code>Canal</code> column:
+      </p>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th id="th-ch-c7">Commerce7 Raw Source / Tag</th>
+              <th id="th-ch-target">Standardized Report Channel (Canal)</th>
+              <th id="th-ch-rule">Classification Logic</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>POS</code> terminal at tasting room</td>
+              <td><strong>Tasting Room</strong></td>
+              <td id="td-ch-1-logic">All sales rung through tasting room point-of-sale hardware.</td>
+            </tr>
+            <tr>
+              <td><code>Club</code> with title matching "Estate"</td>
+              <td><strong>Estate Club</strong></td>
+              <td id="td-ch-2-logic">Automatic bi-annual club shipments for Estate tier members.</td>
+            </tr>
+            <tr>
+              <td><code>Club</code> with title matching "Founder"</td>
+              <td><strong>Founder's Club</strong></td>
+              <td id="td-ch-3-logic">Allocated club shipments for Founder's Reserve members.</td>
+            </tr>
+            <tr>
+              <td><code>Inbound</code> with tag <code>Event</code></td>
+              <td><strong>Event</strong></td>
+              <td id="td-ch-4-logic">Special on-site dinners and private events.</td>
+            </tr>
+            <tr>
+              <td><code>Inbound</code> with tag <code>Corporate</code></td>
+              <td><strong>Corporate</strong></td>
+              <td id="td-ch-5-logic">Corporate gift orders and executive gifting accounts.</td>
+            </tr>
+            <tr>
+              <td><code>Inbound</code> with tag <code>Friends &amp; Family</code></td>
+              <td><strong>Friends &amp; Family</strong></td>
+              <td id="td-ch-6-logic">Staff, family, and industry partner courtesy purchases.</td>
+            </tr>
+            <tr>
+              <td><code>Inbound</code> without special tags</td>
+              <td><strong>Telesales</strong></td>
+              <td id="td-ch-7-logic">Direct sales via phone, VIP concierge, or email campaign.</td>
+            </tr>
+            <tr>
+              <td><code>Web</code> with payment source matching <code>Tock</code></td>
+              <td><strong>Tock</strong></td>
+              <td id="td-ch-8-logic">Prepaid hospitality experiences and tasting reservation deposits.</td>
+            </tr>
+            <tr>
+              <td><code>Web</code> standard cart checkout</td>
+              <td><strong>Web / Ecommerce</strong></td>
+              <td id="td-ch-9-logic">Public online bottle purchases through sullivanwine.com.</td>
+            </tr>
+            <tr>
+              <td>Wholesale invoices / Open POs / Depletions</td>
+              <td><strong>Wholesale</strong></td>
+              <td id="td-ch-10-logic">Distributor distribution (Southern Glazer's, RNDC, out-of-state).</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="font-size: 0.85rem; color: var(--brand-gray); margin-top: 10px;" id="chan-tax-note">
+        <strong>Rule on Taxonomy:</strong> The channel names above are official business terms. 
+        Do not translate these names into Spanish or any other language; they match Commerce7 registers exactly.
+      </p>
+    </section>
+
+    <!-- SECTION 7: ACTION CHECKLIST -->
+    <section id="action-checklist" class="card">
+      <div class="card-header">
+        <h2 id="act-header-title">7. Action Plan for Sullivan Finance and Data Teams</h2>
+        <span class="section-badge" id="act-section-badge">Next Steps</span>
+      </div>
+
+      <div class="step-card">
+        <div class="step-number">1</div>
+        <div class="step-body">
+          <h5 id="act-s1-title">Share this Specification Document</h5>
+          <p id="act-s1-text">
+            Send this document to the Commerce7 administrator and the Sullivan finance director. 
+            Confirm their approval of the required columns and format rules.
+          </p>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-number">2</div>
+        <div class="step-body">
+          <h5 id="act-s2-title">Export Historical Transaction Log (2025 and 2026)</h5>
+          <p id="act-s2-text">
+            Extract all sales records from January 1, 2025 to the current week. 
+            Format the output file according to the <code>sullivan_ventas_reales.csv</code> dictionary.
+          </p>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-number">3</div>
+        <div class="step-body">
+          <h5 id="act-s3-title">Construct 2026 Weekly Budget File</h5>
+          <p id="act-s3-text">
+            Divide the 2026 financial sales targets into weekly allocations by wine product and channel. 
+            Populate the <code>sullivan_plan_semanal.csv</code> file.
+          </p>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-number">4</div>
+        <div class="step-body">
+          <h5 id="act-s4-title">Execute Report Generation</h5>
+          <p id="act-s4-text">
+            Place the completed CSV files into the designated data directory. 
+            Run the generator script to produce the HTML Dashboard, PDF Executive Report, and Excel Workbook.
+          </p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================================================
+       FOOTER
+       ======================================================================== -->
+  <footer>
+    <div id="footer-copy">
+      &copy; 2026 Sullivan Rutherford Estate &bull; Technical Specification Document (ASD-STE100)
+    </div>
+    <div id="footer-links">
+      <a href="#diagnosis" id="footer-top-link">&#8593; Back to Top</a>
+    </div>
+  </footer>
+
+  <!-- ========================================================================
+       INTERACTIVE JAVASCRIPT: Language Switcher, Tabs, and Snippet Copy
+       ======================================================================== -->
+  <script>
+    // Dictionary of all bilingual text strings
+    const I18N = {
+      en: {
+        titleText: "Data Requirements Specification",
+        subtitleText: "Technical Integration Guide • Sales vs. Plan Engine",
+        printBtnText: "Print / PDF",
+        
+        navDiagnosis: "1. Executive Audit",
+        navGaps: "2. Five Critical Gaps",
+        navArch: "3. File Architecture",
+        navDict: "4. Data Dictionaries",
+        navSamples: "5. Sample CSV Data",
+        navChannels: "6. Channel Mapping",
+        navActions: "7. Action Checklist",
+
+        steBadgeTitle: "ASD-STE100 Simplified Technical English Standard",
+        steBadgeDesc: "This document follows the ASD-STE100 standard. Sentences are short (maximum 20 words). Vocabulary is restricted to avoid ambiguity. Follow each requirement exactly to permit automated data ingestion.",
+
+        diagHeaderTitle: "1. Technical Audit and System Verdict",
+        diagStatusBadge: "CURRENT DATA STATUS: INSUFFICIENT",
+        diagLeadText: "The technical team completed an audit of the files in the Sullivan project workspace. The current data does not permit the generation of the Comparative vs. Plan Dashboard.",
+        
+        diagBox1Badge: "CRITICAL DEFECT 1",
+        diagBox1Title: "Missing Weekly Budget",
+        diagBox1Text: "Financial P&L statements contain only high-level monthly totals. There is no weekly budget broken down by SKU and sales channel.",
+        diagBox1Meta: "Impact: Math cannot calculate % plan achievement or dollar variances.",
+
+        diagBox2Badge: "CRITICAL DEFECT 2",
+        diagBox2Title: "No Continuous History",
+        diagBox2Text: "The workspace contains only isolated transactions for April 2026 and one week in August 2026. All 2025 transactions are missing.",
+        diagBox2Meta: "Impact: Engine cannot calculate WoW, YoY, YTD, or 52-week trends.",
+
+        diagBox3Badge: "CRITICAL DEFECT 3",
+        diagBox3Title: "Disconnected Data Silos",
+        diagBox3Text: "Commerce7 DTC orders, Wholesale Open POs, and Tock tasting bookings exist in separate unlinked formats.",
+        diagBox3Meta: "Impact: Consolidated winery volume and revenue remain fragmented.",
+
+        diagTableTitle: "Audit Summary of Received Files",
+        thInvFile: "Received File",
+        thInvType: "Content Type",
+        thInvDiag: "Technical Diagnosis",
+        thInvStatus: "Supports Plan Comparison?",
+        tdInv1Type: "583 DTC sales transactions (April 2026)",
+        tdInv1Diag: "Good transactional base. Covers only one isolated month.",
+        tdInv1Status: "Partial (Actuals Only)",
+        tdInv1bType: "Order-level financial summary",
+        tdInv1bDiag: "Financial reconciliation control file. Redundant with OrderSales.",
+        tdInv1bStatus: "No (No Budget)",
+        tdInv2Type: "66 DTC orders, 4 POs, depletions, Tock bookings",
+        tdInv2Diag: "One isolated week in August 2026. Disconnected from prior weeks.",
+        tdInv2Status: "No (Isolated Week)",
+        tdInv3Type: "Product cross-reference across platforms",
+        tdInv3Diag: "Excellent master mapping. Normalizes wine commercial names.",
+        tdInv3Status: "Master Reference",
+        tdInv4Type: "Commerce7 classification business logic",
+        tdInv4Diag: "Official channel taxonomy guide. Must be applied to all records.",
+        tdInv4Status: "Classification Rulebook",
+        tdInv5Type: "QuickBooks financial statements and cash projections",
+        tdInv5Diag: "High-level accounting totals. No weekly breakdown by SKU or channel.",
+        tdInv5Status: "No (Accounting Only)",
+
+        gapsHeaderTitle: "2. Five Critical Data Gaps Sullivan Must Resolve",
+        gapsSectionBadge: "Actionable Requirements",
+        gap1Title: "Deliver Weekly Plan / Budget File",
+        gap1Text: "Sullivan must provide a budget file structured by ISO week (e.g. 2026-W16), canonical wine product name, sales channel, target bottles, and target net revenue in USD.",
+        gap2Title: "Deliver Continuous Historical Sales Data",
+        gap2Text: "The analytics engine requires historical continuity to calculate comparative trends.",
+        gap3Title: "Unify Commercial Sales Channels",
+        gap3Text: "Consolidate DTC orders (Commerce7), wholesale invoices (distributors), and tasting experiences (Tock) into one unified row-level table.",
+        gap4Title: "Standardize Channel Names (Commerce7 Logic)",
+        gap4Text: "Apply Sullivan's official classification rules from April_C7_Data_Guide.xlsx.",
+        gap5Title: "Isolate Physical Bottles from Service Fees and Discounts",
+        gap5Text: "Transaction exports contain wine tastings, event fees, and shipping surcharges. Add a mandatory Categoria_Negocio column to distinguish physical bottles.",
+
+        archHeaderTitle: "3. Official File Delivery Architecture",
+        archSectionBadge: "Standard CSV Layout",
+        archLeadText: "Place three CSV files in the designated input directory. The engine will ingest these files automatically:",
+        thArchFile: "File Name",
+        thArchPriority: "Priority",
+        thArchPurpose: "Purpose and Engine Function",
+        thArchSample: "Reference Sample in Repo",
+        tdArchP1: "MANDATORY",
+        tdArchD1: "All actual transaction rows from 2025-01-01 to present date. Feeds actual sales and volume.",
+        tdArchP2: "MANDATORY (For Plan vs Actual)",
+        tdArchD2: "Weekly budget targets by week, SKU, and sales channel. Calculates variances and % plan achieved.",
+        tdArchP3: "RECOMMENDED",
+        tdArchD3: "Master wine product catalog. Provides standard bottle ML size, list price, and unit COGS.",
+
+        dictHeaderTitle: "4. Technical Data Dictionaries (Field-by-Field Specification)",
+        dictSectionBadge: "Dictionary Standards",
+        dictLeadText: "Select a tab below to inspect the required columns, data types, validation rules, and sample values for each file.",
+        btnTabVentas: "sullivan_ventas_reales.csv (19 Columns)",
+        btnTabPlan: "sullivan_plan_semanal.csv (8 Columns)",
+        btnTabCatalogo: "sullivan_catalogo_sku.csv (7 Columns)",
+        tab1Title: "Specification: Actual Sales Transactions (sullivan_ventas_reales.csv)",
+        tab1Badge: "Each row = One line item of a customer order",
+        tab2Title: "Specification: Weekly Budget / Target Plan (sullivan_plan_semanal.csv)",
+        tab2Badge: "Mandatory to generate Plan vs Real KPIs",
+        tab3Title: "Specification: Master SKU Catalog & Standard Costs (sullivan_catalogo_sku.csv)",
+        tab3Badge: "Recommended for automated margin calculation",
+
+        sampleHeaderTitle: "5. Inspection of Provided Demonstration CSV Files",
+        sampleSectionBadge: "Live Demonstration Records",
+        sampleLeadText: "Three sample files are stored in the Pruebas_y_demos/ folder. Review the actual CSV syntax and row contents below:",
+        s1Title: "Sample File: sullivan_ventas_reales_ejemplo.csv (First 4 Data Rows)",
+        s1Note: "Key Insight: Line 4 illustrates a wholesale transaction (RNDC Texas): 36 bottles (3.0 cases 9L) at a wholesale price of $178.75 per bottle, yielding $6,435.00 net sales and $3,267.00 gross margin.",
+        s2Title: "Sample File: sullivan_plan_semanal_ejemplo.csv (First 4 Data Rows)",
+        s2Note: "Key Insight: Week 2026-W01 has individual target allocations for each wine and channel. When actual transactions occur in Week 1, the engine compares actual dollars against these targets.",
+        s3Title: "Sample File: sullivan_catalogo_sku_costos_ejemplo.csv (First 4 Data Rows)",
+
+        chanHeaderTitle: "6. Commerce7 Channel Classification Rulebook",
+        chanSectionBadge: "Taxonomy Rulebook",
+        chanLeadText: "Sullivan defines strict channel taxonomy in April_C7_Data_Guide.xlsx. Raw exports must be mapped to these exact channel names in the Canal column:",
+        thChC7: "Commerce7 Raw Source / Tag",
+        thChTarget: "Standardized Report Channel (Canal)",
+        thChRule: "Classification Logic",
+        chanTaxNote: "Rule on Taxonomy: The channel names above are official business terms. Do not translate these names into Spanish or any other language; they match Commerce7 registers exactly.",
+
+        actHeaderTitle: "7. Action Plan for Sullivan Finance and Data Teams",
+        actSectionBadge: "Next Steps",
+        actS1Title: "Share this Specification Document",
+        actS1Text: "Send this document to the Commerce7 administrator and the Sullivan finance director. Confirm their approval of the required columns and format rules.",
+        actS2Title: "Export Historical Transaction Log (2025 and 2026)",
+        actS2Text: "Extract all sales records from January 1, 2025 to the current week. Format the output file according to the sullivan_ventas_reales.csv dictionary.",
+        actS3Title: "Construct 2026 Weekly Budget File",
+        actS3Text: "Divide the 2026 financial sales targets into weekly allocations by wine product and channel. Populate the sullivan_plan_semanal.csv file.",
+        actS4Title: "Execute Report Generation",
+        actS4Text: "Place the completed CSV files into the designated data directory. Run the generator script to produce the HTML Dashboard, PDF Executive Report, and Excel Workbook.",
+
+        // Tab 1 Dictionaries
+        thVCol: "Column Name",
+        thVType: "Type",
+        thVReq: "Required",
+        thVDesc: "ASD-STE100 Definition & Validation Rule",
+        thVSample: "Sample Value",
+        vDescFecha: "Order payment date. Use standard ISO format: YYYY-MM-DD.",
+        vDescSemana: "ISO calendar week. Use format YYYY-Www or integer 1..52.",
+        vDescAnio: "Four-digit transaction year. Must match date year.",
+        vDescSku: "Unique product identifier from Commerce7 or warehouse inventory.",
+        vDescProducto: "Standard commercial wine name. Matches master product catalog.",
+        vDescLinea: "Varietal or wine family (e.g. Cabernet Sauvignon, Merlot, Red Blend).",
+        vDescCat: "Item type. Use: Producto (Botellas), Experiencias / Tastings, Servicios / Cuotas.",
+        vDescCanal: "Standardized sales channel per Section 6 (e.g. Tasting Room, Estate Club, Web / Ecommerce).",
+        vDescCliente: "Name of club member, walk-in guest, corporate account, or distributor.",
+        vDescEstado: "Destination US State or Region. Used for shipment distribution mapping.",
+        vDescBotellas: "Physical count of bottles sold in this line item. Must be greater than 0.",
+        vDescPunit: "Net unit price charged per bottle in USD (after discounts, before taxes).",
+        vDescVneta: "Total line revenue in USD without tax and shipping (Botellas * Precio_Unitario).",
+        vDescTax: "Sales and excise tax collected on this line in USD.",
+        vDescVtot: "Gross collected amount including net revenue, tax, and allocated shipping.",
+        vDescCunit: "Cost of goods sold (COGS) per bottle in USD. Enables margin analytics.",
+        vDescMargen: "Gross profit in USD: Venta_Neta - (Botellas * Costo_Unitario).",
+        vDescCajas: "Nine-liter case equivalent: (Botellas * Tamano_ML) / 9000.",
+        vDescEstatus: "Order status. Use Vigente or Completada. Engine ignores cancelled rows.",
+
+        // Tab 2 Dictionaries
+        thPCol: "Column Name",
+        thPType: "Type",
+        thPReq: "Required",
+        thPDesc: "ASD-STE100 Definition & Validation Rule",
+        thPSample: "Sample Value",
+        pDescAnio: "Four-digit budget year. Example: 2026.",
+        pDescSemana: "ISO budget week code. Must strictly use format YYYY-Www.",
+        pDescProd: "Wine product name or wine line planned for this week.",
+        pDescCanal: "Target sales channel (Tasting Room, Estate Club, Founder's Club, Web, Wholesale).",
+        pDescBot: "Budgeted quantity of physical bottles for this week, product, and channel.",
+        pDescVneta: "Budgeted net sales in USD without tax and shipping.",
+        pDescMargen: "Budgeted gross margin in USD for this row.",
+        pDescCajas: "Budgeted 9-liter case volume: (Plan_Botellas * 0.75) / 9.0.",
+
+        // Tab 3 Dictionaries
+        thCCol: "Column Name",
+        thCType: "Type",
+        thCReq: "Required",
+        thCDesc: "ASD-STE100 Definition & Validation Rule",
+        thCSample: "Sample Value",
+        cDescSku: "Unique SKU identifier in Commerce7 and warehouse ERP.",
+        cDescProd: "Canonical wine product title for executive reporting.",
+        cDescFam: "Varietal family: Cabernet Sauvignon, Merlot, Red Blend, White Wine, Rose.",
+        cDescMl: "Bottle volume in milliliters. Standard bottle is 750.",
+        cDescPlist: "Official winery retail list price in USD (MSRP).",
+        cDescCogs: "Standard production cost per bottle (grape, barrel, bottling, packaging).",
+        cDescActivo: "Sales status flag: True if currently sold, False if archived/library.",
+
+        // Channel Logic Descriptions
+        tdCh1Logic: "All sales rung through tasting room point-of-sale hardware.",
+        tdCh2Logic: "Automatic bi-annual club shipments for Estate tier members.",
+        tdCh3Logic: "Allocated club shipments for Founder's Reserve members.",
+        tdCh4Logic: "Special on-site dinners and private events.",
+        tdCh5Logic: "Corporate gift orders and executive gifting accounts.",
+        tdCh6Logic: "Staff, family, and industry partner courtesy purchases.",
+        tdCh7Logic: "Direct sales via phone, VIP concierge, or email campaign.",
+        tdCh8Logic: "Prepaid hospitality experiences and tasting reservation deposits.",
+        tdCh9Logic: "Public online bottle purchases through sullivanwine.com.",
+        tdCh10Logic: "Distributor distribution (Southern Glazer's, RNDC, out-of-state).",
+
+        footerCopy: "&copy; 2026 Sullivan Rutherford Estate &bull; Technical Specification Document (ASD-STE100)",
+        footerTopLink: "&#8593; Back to Top"
+      },
+
+      es: {
+        titleText: "Especificación de Requerimientos de Datos",
+        subtitleText: "Guía Técnica de Integración • Motor de Ventas vs. Plan",
+        printBtnText: "Imprimir / PDF",
+        
+        navDiagnosis: "1. Auditoría Técnica",
+        navGaps: "2. Cinco Brechas Críticas",
+        navArch: "3. Arquitectura de Archivos",
+        navDict: "4. Diccionarios de Datos",
+        navSamples: "5. Datos de Muestra CSV",
+        navChannels: "6. Mapeo de Canales",
+        navActions: "7. Plan de Acción",
+
+        steBadgeTitle: "Norma ASD-STE100 de Inglés Técnico Simplificado",
+        steBadgeDesc: "Este documento aplica la norma ASD-STE100. Las oraciones son breves (máximo 20 palabras). El vocabulario es directo para eliminar ambigüedades. Cumpla cada requerimiento para permitir la carga automatizada.",
+
+        diagHeaderTitle: "1. Auditoría Técnica y Dictamen del Sistema",
+        diagStatusBadge: "ESTADO ACTUAL: DATOS INSUFICIENTES",
+        diagLeadText: "El equipo técnico auditó los archivos en el repositorio de Sullivan. La información actual no permite generar el Tablero Comparativo vs. Plan.",
+        
+        diagBox1Badge: "DEFECTO CRÍTICO 1",
+        diagBox1Title: "Falta Presupuesto Semanal",
+        diagBox1Text: "Los estados financieros P&L solo contienen totales mensuales. No existe un presupuesto semanal desglosado por SKU y canal comercial.",
+        diagBox1Meta: "Impacto: No es posible calcular el % de cumplimiento del plan ni variaciones en dólares.",
+
+        diagBox2Badge: "DEFECTO CRÍTICO 2",
+        diagBox2Title: "Sin Histórico Continuo",
+        diagBox2Text: "El repositorio solo contiene transacciones aisladas de abril 2026 y una semana de agosto 2026. Falta todo el histórico de 2025.",
+        diagBox2Meta: "Impacto: El motor no puede calcular variaciones WoW, YoY, YTD ni tendencias anuales móviles.",
+
+        diagBox3Badge: "DEFECTO CRÍTICO 3",
+        diagBox3Title: "Silos de Datos Desconectados",
+        diagBox3Text: "Las órdenes DTC de Commerce7, órdenes de compra mayoristas y reservas Tock residen en formatos separados e inconexos.",
+        diagBox3Meta: "Impacto: El volumen y los ingresos de la bodega permanecen fragmentados.",
+
+        diagTableTitle: "Resumen de Auditoría de Archivos Recibidos",
+        thInvFile: "Archivo Recibido",
+        thInvType: "Tipo de Contenido",
+        thInvDiag: "Diagnóstico Técnico",
+        thInvStatus: "¿Permite Comparativa vs Plan?",
+        tdInv1Type: "583 transacciones de venta DTC (abril 2026)",
+        tdInv1Diag: "Buena base transaccional. Cubre un único mes aislado.",
+        tdInv1Status: "Parcial (Solo Actuals)",
+        tdInv1bType: "Resumen financiero por orden",
+        tdInv1bDiag: "Archivo de conciliación financiera. Redundante con OrderSales.",
+        tdInv1bStatus: "No (Sin Presupuesto)",
+        tdInv2Type: "66 órdenes DTC, 4 POs, depletions, reservas Tock",
+        tdInv2Diag: "Una sola semana aislada de agosto 2026. Desconectada de semanas previas.",
+        tdInv2Status: "No (Semana Aislada)",
+        tdInv3Type: "Mapeo cruzado de productos entre plataformas",
+        tdInv3Diag: "Excelente catálogo maestro. Normaliza los nombres de los vinos.",
+        tdInv3Status: "Referencia Maestra",
+        tdInv4Type: "Lógica de clasificación de Commerce7",
+        tdInv4Diag: "Guía oficial de taxonomía de canales. Debe aplicarse a cada fila.",
+        tdInv4Status: "Regla de Clasificación",
+        tdInv5Type: "P&L de QuickBooks y proyecciones de flujo de caja",
+        tdInv5Diag: "Totales contables agregados. Sin desglose semanal por SKU ni canal.",
+        tdInv5Status: "No (Solo Contable)",
+
+        gapsHeaderTitle: "2. Las Cinco Brechas Críticas que Sullivan Debe Resolver",
+        gapsSectionBadge: "Requerimientos Accionables",
+        gap1Title: "Entregar Archivo de Presupuesto Semanal (Plan)",
+        gap1Text: "Sullivan debe proveer un archivo de presupuesto estructurado por semana ISO (ej. 2026-W16), nombre de vino, canal, botellas y venta neta en USD.",
+        gap2Title: "Entregar Histórico Transaccional Continuo",
+        gap2Text: "El motor analítico exige continuidad temporal para calcular tendencias comparativas.",
+        gap3Title: "Unificar Canales Comerciales",
+        gap3Text: "Consolide ventas DTC (Commerce7), facturas mayoristas (distribuidores) y experiencias (Tock) en una sola tabla transaccional.",
+        gap4Title: "Estandarizar Nombres de Canales (Lógica Commerce7)",
+        gap4Text: "Aplique las reglas oficiales de clasificación de April_C7_Data_Guide.xlsx.",
+        gap5Title: "Aislar Botellas Físicas de Servicios y Descuentos",
+        gap5Text: "Las extracciones contienen degustaciones, eventos y fletes. Añada la columna Categoria_Negocio para aislar botellas de vino.",
+
+        archHeaderTitle: "3. Arquitectura Oficial de Entrega de Archivos",
+        archSectionBadge: "Estructura CSV Estándar",
+        archLeadText: "Deposite tres archivos CSV en el directorio de entrada designado. El motor procesará estos archivos automáticamente:",
+        thArchFile: "Nombre de Archivo",
+        thArchPriority: "Prioridad",
+        thArchPurpose: "Propósito y Función en el Motor",
+        thArchSample: "Muestra de Referencia en Repo",
+        tdArchP1: "OBLIGATORIO",
+        tdArchD1: "Todas las transacciones reales desde 2025-01-01 hasta hoy. Alimenta ventas y volumen real.",
+        tdArchP2: "OBLIGATORIO (Para Comparar vs Plan)",
+        tdArchD2: "Metas semanales por semana, SKU y canal comercial. Calcula variaciones y % de cumplimiento.",
+        tdArchP3: "RECOMENDADO",
+        tdArchD3: "Catálogo maestro de vinos. Provee volumen en ML, precio de lista y costo unitario (COGS).",
+
+        dictHeaderTitle: "4. Diccionarios Técnicos de Datos (Especificación Campo por Campo)",
+        dictSectionBadge: "Normas de Diccionario",
+        dictLeadText: "Seleccione una pestaña para consultar columnas, tipos de datos, reglas de validación y valores de muestra de cada archivo.",
+        btnTabVentas: "sullivan_ventas_reales.csv (19 Columnas)",
+        btnTabPlan: "sullivan_plan_semanal.csv (8 Columnas)",
+        btnTabCatalogo: "sullivan_catalogo_sku.csv (7 Columnas)",
+        tab1Title: "Especificación: Transacciones Reales de Venta (sullivan_ventas_reales.csv)",
+        tab1Badge: "Cada fila = Una partida vendida en una orden",
+        tab2Title: "Especificación: Presupuesto Semanal / Metas (sullivan_plan_semanal.csv)",
+        tab2Badge: "Obligatorio para calcular KPIs de Plan vs Real",
+        tab3Title: "Especificación: Catálogo Maestro de SKUs y Costos (sullivan_catalogo_sku.csv)",
+        tab3Badge: "Recomendado para cálculo automático de margen",
+
+        // Tab 1 Dictionaries ES
+        thVCol: "Nombre de Columna",
+        thVType: "Tipo",
+        thVReq: "Requerido",
+        thVDesc: "Definición ASD-STE100 y Regla de Validación",
+        thVSample: "Valor Muestra",
+        vDescFecha: "Fecha de pago de la orden. Use formato estándar ISO: YYYY-MM-DD.",
+        vDescSemana: "Semana calendario ISO. Use formato YYYY-Www o entero de 1 a 52.",
+        vDescAnio: "Año de la transacción en 4 dígitos. Debe coincidir con la fecha.",
+        vDescSku: "Identificador único de producto en Commerce7 o inventario de bodega.",
+        vDescProducto: "Nombre comercial canónico del vino. Coincide con catálogo maestro.",
+        vDescLinea: "Familia o varietal del vino (ej. Cabernet Sauvignon, Merlot, Red Blend).",
+        vDescCat: "Tipo de partida. Use: Producto (Botellas), Experiencias / Tastings, Servicios / Cuotas.",
+        vDescCanal: "Canal comercial estandarizado según Sección 6 (ej. Tasting Room, Estate Club, Web / Ecommerce).",
+        vDescCliente: "Nombre del socio de club, cliente de salón, cuenta corporativa o distribuidor.",
+        vDescEstado: "Estado o región de destino en EE.UU. Usado para el mapa geográfico de envíos.",
+        vDescBotellas: "Cantidad física de botellas vendidas en la línea. Debe ser mayor a 0.",
+        vDescPunit: "Precio unitario neto por botella en USD (tras descuentos, sin impuestos).",
+        vDescVneta: "Venta neta de la línea en USD sin flete ni impuestos (Botellas * Precio_Unitario).",
+        vDescTax: "Impuestos recaudados en la línea en USD (sales tax y excise tax).",
+        vDescVtot: "Importe bruto cobrado incluyendo venta neta, impuestos y flete proporcional.",
+        vDescCunit: "Costo de producción estándar (COGS) por botella en USD. Permite análisis de margen.",
+        vDescMargen: "Margen bruto en USD: Venta_Neta - (Botellas * Costo_Unitario).",
+        vDescCajas: "Cajas de 9 litros equivalentes: (Botellas * Tamano_ML) / 9000.",
+        vDescEstatus: "Estatus de la orden. Use Vigente o Completada. El motor ignora líneas canceladas.",
+
+        // Tab 2 Dictionaries ES
+        thPCol: "Nombre de Columna",
+        thPType: "Tipo",
+        thPReq: "Requerido",
+        thPDesc: "Definición ASD-STE100 y Regla de Validación",
+        thPSample: "Valor Muestra",
+        pDescAnio: "Año presupuestado en 4 dígitos. Ejemplo: 2026.",
+        pDescSemana: "Código de semana presupuestada ISO. Debe usar estrictamente el formato YYYY-Www.",
+        pDescProd: "Nombre del vino o línea de producto presupuestada para esta semana.",
+        pDescCanal: "Canal comercial presupuestado (Tasting Room, Estate Club, Founder's Club, Web, Wholesale).",
+        pDescBot: "Cantidad de botellas físicas proyectadas para esa semana, vino y canal.",
+        pDescVneta: "Venta neta presupuestada en USD (sin impuestos ni flete).",
+        pDescMargen: "Margen bruto proyectado en USD para esta fila.",
+        pDescCajas: "Volumen proyectado en cajas de 9 litros: (Plan_Botellas * 0.75) / 9.0.",
+
+        // Tab 3 Dictionaries ES
+        thCCol: "Nombre de Columna",
+        thCType: "Tipo",
+        thCReq: "Requerido",
+        thCDesc: "Definición ASD-STE100 y Regla de Validación",
+        thCSample: "Valor Muestra",
+        cDescSku: "Identificador único de SKU en Commerce7 y ERP de almacén.",
+        cDescProd: "Nombre comercial canónico del vino para presentación en reportes ejecutivos.",
+        cDescFam: "Familia o varietal: Cabernet Sauvignon, Merlot, Red Blend, White Wine, Rose.",
+        cDescMl: "Volumen de la botella en mililitros. La botella estándar es 750.",
+        cDescPlist: "Precio oficial de lista al por menor en USD (MSRP).",
+        cDescCogs: "Costo unitario estándar de producción (uva, barrica, embotellado y empaque).",
+        cDescActivo: "Bandera de estado de venta: True si se vende actualmente, False si es biblioteca.",
+
+        // Channel Logic Descriptions ES
+        tdCh1Logic: "Ventas registradas en terminales de punto de venta en sala de degustación.",
+        tdCh2Logic: "Envíos semestrales automáticos para miembros del club nivel Estate.",
+        tdCh3Logic: "Envíos programados exclusivos para miembros de Founder's Reserve.",
+        tdCh4Logic: "Cenas especiales y eventos privados organizados en la bodega.",
+        tdCh5Logic: "Pedidos corporativos de obsequios y cuentas de regalos ejecutivos.",
+        tdCh6Logic: "Compras de cortesía para personal, familiares y aliados del sector.",
+        tdCh7Logic: "Ventas directas vía telefónica, concierge VIP o campañas de correo.",
+        tdCh8Logic: "Experiencias de degustación y depósitos prepagados a través de Tock.",
+        tdCh9Logic: "Ventas públicas en línea a clientes finales a través de sullivanwine.com.",
+        tdCh10Logic: "Distribución mayorista a distribuidores (Southern Glazer's, RNDC, etc.).",
+
+        sampleHeaderTitle: "5. Inspección de Archivos CSV de Demostración Provistos",
+        sampleSectionBadge: "Registros Reales de Demostración",
+        sampleLeadText: "Se encuentran tres archivos de muestra en la carpeta Pruebas_y_demos/. Revise a continuación la sintaxis y el contenido de las filas:",
+        s1Title: "Archivo de Muestra: sullivan_ventas_reales_ejemplo.csv (Primeras 4 Filas de Datos)",
+        s1Note: "Dato Clave: La línea 4 ilustra una venta mayorista (RNDC Texas): 36 botellas (3.0 cajas 9L) a precio mayorista de $178.75 por botella, generando $6,435.00 en venta neta y $3,267.00 de margen bruto.",
+        s2Title: "Archivo de Muestra: sullivan_plan_semanal_ejemplo.csv (Primeras 4 Filas de Datos)",
+        s2Note: "Dato Clave: La semana 2026-W01 tiene asignaciones presupuestadas individuales para cada vino y canal. Al registrarse ventas reales en la semana 1, el motor calcula el cumplimiento frente a estas metas.",
+        s3Title: "Archivo de Muestra: sullivan_catalogo_sku_costos_ejemplo.csv (Primeras 4 Filas de Datos)",
+
+        chanHeaderTitle: "6. Reglas de Clasificación de Canales de Commerce7",
+        chanSectionBadge: "Manual de Taxonomía",
+        chanLeadText: "Sullivan define una taxonomía estricta en April_C7_Data_Guide.xlsx. Las extracciones crudas deben mapearse a estos nombres exactos en la columna Canal:",
+        thChC7: "Origen Crudo Commerce7 / Etiqueta",
+        thChTarget: "Canal Estandarizado de Reporte (Canal)",
+        thChRule: "Lógica de Clasificación",
+        chanTaxNote: "Regla de Taxonomía: Los nombres de canales anteriores son términos de negocio oficiales. No traduzca estos nombres; coinciden exactamente con los registros contables de Commerce7.",
+
+        actHeaderTitle: "7. Plan de Acción para los Equipos de Finanzas y Datos de Sullivan",
+        actSectionBadge: "Próximos Pasos",
+        actS1Title: "Compartir este Documento de Especificación",
+        actS1Text: "Envíe este documento al administrador de Commerce7 y al director financiero de Sullivan. Confirme su aprobación de las columnas y reglas requeridas.",
+        actS2Title: "Exportar Histórico Transaccional (2025 y 2026)",
+        actS2Text: "Extraiga todas las ventas desde el 1 de enero de 2025 hasta la semana en curso. Eructure el archivo según el diccionario sullivan_ventas_reales.csv.",
+        actS3Title: "Construir Archivo de Presupuesto Semanal 2026",
+        actS3Text: "Distribuya las metas financieras de 2026 en semanas, productos de vino y canales. Llene el archivo sullivan_plan_semanal.csv.",
+        actS4Title: "Ejecutar la Generación de Reportes",
+        actS4Text: "Deposite los archivos CSV en la carpeta designada. Ejecute el script para generar el Tablero HTML, Reporte Ejecutivo PDF y Libro Excel.",
+
+        footerCopy: "&copy; 2026 Sullivan Rutherford Estate &bull; Documento Técnico de Requerimientos (ASD-STE100)",
+        footerTopLink: "&#8593; Volver al Inicio"
+      }
+    };
+
+    let currentLang = 'en';
+
+    function setLanguage(lang) {
+      currentLang = lang;
+      const dict = I18N[lang];
+
+      // Update switcher buttons
+      document.getElementById('btn-lang-en').classList.toggle('active', lang === 'en');
+      document.getElementById('btn-lang-es').classList.toggle('active', lang === 'es');
+
+      // Update header & text fields
+      document.getElementById('title-text').textContent = dict.titleText;
+      document.getElementById('subtitle-text').textContent = dict.subtitleText;
+      document.getElementById('print-btn-text').textContent = dict.printBtnText;
+
+      document.getElementById('nav-diagnosis').textContent = dict.navDiagnosis;
+      document.getElementById('nav-gaps').textContent = dict.navGaps;
+      document.getElementById('nav-arch').textContent = dict.navArch;
+      document.getElementById('nav-dict').textContent = dict.navDict;
+      document.getElementById('nav-samples').textContent = dict.navSamples;
+      document.getElementById('nav-channels').textContent = dict.navChannels;
+      document.getElementById('nav-actions').textContent = dict.navActions;
+
+      document.getElementById('ste-badge-title').textContent = dict.steBadgeTitle;
+      document.getElementById('ste-badge-desc').textContent = dict.steBadgeDesc;
+
+      document.getElementById('diag-header-title').textContent = dict.diagHeaderTitle;
+      document.getElementById('diag-status-badge').textContent = dict.diagStatusBadge;
+      document.getElementById('diag-lead-text').textContent = dict.diagLeadText;
+
+      document.getElementById('diag-box1-badge').textContent = dict.diagBox1Badge;
+      document.getElementById('diag-box1-title').textContent = dict.diagBox1Title;
+      document.getElementById('diag-box1-text').textContent = dict.diagBox1Text;
+      document.getElementById('diag-box1-meta').textContent = dict.diagBox1Meta;
+
+      document.getElementById('diag-box2-badge').textContent = dict.diagBox2Badge;
+      document.getElementById('diag-box2-title').textContent = dict.diagBox2Title;
+      document.getElementById('diag-box2-text').textContent = dict.diagBox2Text;
+      document.getElementById('diag-box2-meta').textContent = dict.diagBox2Meta;
+
+      document.getElementById('diag-box3-badge').textContent = dict.diagBox3Badge;
+      document.getElementById('diag-box3-title').textContent = dict.diagBox3Title;
+      document.getElementById('diag-box3-text').textContent = dict.diagBox3Text;
+      document.getElementById('diag-box3-meta').textContent = dict.diagBox3Meta;
+
+      document.getElementById('diag-table-title').textContent = dict.diagTableTitle;
+      document.getElementById('th-inv-file').textContent = dict.thInvFile;
+      document.getElementById('th-inv-type').textContent = dict.thInvType;
+      document.getElementById('th-inv-diag').textContent = dict.thInvDiag;
+      document.getElementById('th-inv-status').textContent = dict.thInvStatus;
+      document.getElementById('td-inv-1-type').textContent = dict.tdInv1Type;
+      document.getElementById('td-inv-1-diag').textContent = dict.tdInv1Diag;
+      document.getElementById('td-inv-1-status').textContent = dict.tdInv1Status;
+      document.getElementById('td-inv-1b-type').textContent = dict.tdInv1bType;
+      document.getElementById('td-inv-1b-diag').textContent = dict.tdInv1bDiag;
+      document.getElementById('td-inv-1b-status').textContent = dict.tdInv1bStatus;
+      document.getElementById('td-inv-2-type').textContent = dict.tdInv2Type;
+      document.getElementById('td-inv-2-diag').textContent = dict.tdInv2Diag;
+      document.getElementById('td-inv-2-status').textContent = dict.tdInv2Status;
+      document.getElementById('td-inv-3-type').textContent = dict.tdInv3Type;
+      document.getElementById('td-inv-3-diag').textContent = dict.tdInv3Diag;
+      document.getElementById('td-inv-3-status').textContent = dict.tdInv3Status;
+      document.getElementById('td-inv-4-type').textContent = dict.tdInv4Type;
+      document.getElementById('td-inv-4-diag').textContent = dict.tdInv4Diag;
+      document.getElementById('td-inv-4-status').textContent = dict.tdInv4Status;
+      document.getElementById('td-inv-5-type').textContent = dict.tdInv5Type;
+      document.getElementById('td-inv-5-diag').textContent = dict.tdInv5Diag;
+      document.getElementById('td-inv-5-status').textContent = dict.tdInv5Status;
+
+      document.getElementById('gaps-header-title').textContent = dict.gapsHeaderTitle;
+      document.getElementById('gaps-section-badge').textContent = dict.gapsSectionBadge;
+      document.getElementById('gap1-title').textContent = dict.gap1Title;
+      document.getElementById('gap1-text').textContent = dict.gap1Text;
+      document.getElementById('gap2-title').textContent = dict.gap2Title;
+      document.getElementById('gap2-text').textContent = dict.gap2Text;
+      document.getElementById('gap3-title').textContent = dict.gap3Title;
+      document.getElementById('gap3-text').textContent = dict.gap3Text;
+      document.getElementById('gap4-title').textContent = dict.gap4Title;
+      document.getElementById('gap4-text').textContent = dict.gap4Text;
+      document.getElementById('gap5-title').textContent = dict.gap5Title;
+      document.getElementById('gap5-text').textContent = dict.gap5Text;
+
+      document.getElementById('arch-header-title').textContent = dict.archHeaderTitle;
+      document.getElementById('arch-section-badge').textContent = dict.archSectionBadge;
+      document.getElementById('arch-lead-text').textContent = dict.archLeadText;
+      document.getElementById('th-arch-file').textContent = dict.thArchFile;
+      document.getElementById('th-arch-priority').textContent = dict.thArchPriority;
+      document.getElementById('th-arch-purpose').textContent = dict.thArchPurpose;
+      document.getElementById('th-arch-sample').textContent = dict.thArchSample;
+      document.getElementById('td-arch-p1').textContent = dict.tdArchP1;
+      document.getElementById('td-arch-d1').textContent = dict.tdArchD1;
+      document.getElementById('td-arch-p2').textContent = dict.tdArchP2;
+      document.getElementById('td-arch-d2').textContent = dict.tdArchD2;
+      document.getElementById('td-arch-p3').textContent = dict.tdArchP3;
+      document.getElementById('td-arch-d3').textContent = dict.tdArchD3;
+
+      document.getElementById('dict-header-title').textContent = dict.dictHeaderTitle;
+      document.getElementById('dict-section-badge').textContent = dict.dictSectionBadge;
+      document.getElementById('dict-lead-text').textContent = dict.dictLeadText;
+      document.getElementById('btn-tab-ventas').innerHTML = `<span>&#128196;</span> ${dict.btnTabVentas}`;
+      document.getElementById('btn-tab-plan').innerHTML = `<span>&#128197;</span> ${dict.btnTabPlan}`;
+      document.getElementById('btn-tab-catalogo').innerHTML = `<span>&#127863;</span> ${dict.btnTabCatalogo}`;
+      document.getElementById('tab1-title').textContent = dict.tab1Title;
+      document.getElementById('tab1-badge').textContent = dict.tab1Badge;
+      document.getElementById('tab2-title').textContent = dict.tab2Title;
+      document.getElementById('tab2-badge').textContent = dict.tab2Badge;
+      document.getElementById('tab3-title').textContent = dict.tab3Title;
+      document.getElementById('tab3-badge').textContent = dict.tab3Badge;
+
+      // Tab 1 Fields
+      document.getElementById('th-v-col').textContent = dict.thVCol;
+      document.getElementById('th-v-type').textContent = dict.thVType;
+      document.getElementById('th-v-req').textContent = dict.thVReq;
+      document.getElementById('th-v-desc').textContent = dict.thVDesc;
+      document.getElementById('th-v-sample').textContent = dict.thVSample;
+      document.getElementById('v-desc-fecha').innerHTML = dict.vDescFecha.replace('YYYY-MM-DD', '<code>YYYY-MM-DD</code>');
+      document.getElementById('v-desc-semana').innerHTML = dict.vDescSemana.replace('YYYY-Www', '<code>YYYY-Www</code>');
+      document.getElementById('v-desc-anio').textContent = dict.vDescAnio;
+      document.getElementById('v-desc-sku').textContent = dict.vDescSku;
+      document.getElementById('v-desc-producto').textContent = dict.vDescProducto;
+      document.getElementById('v-desc-linea').textContent = dict.vDescLinea;
+      document.getElementById('v-desc-cat').innerHTML = dict.vDescCat.replace('Producto (Botellas)', '<code>Producto (Botellas)</code>');
+      document.getElementById('v-desc-canal').textContent = dict.vDescCanal;
+      document.getElementById('v-desc-cliente').textContent = dict.vDescCliente;
+      document.getElementById('v-desc-estado').textContent = dict.vDescEstado;
+      document.getElementById('v-desc-botellas').textContent = dict.vDescBotellas;
+      document.getElementById('v-desc-punit').textContent = dict.vDescPunit;
+      document.getElementById('v-desc-vneta').textContent = dict.vDescVneta;
+      document.getElementById('v-desc-tax').textContent = dict.vDescTax;
+      document.getElementById('v-desc-vtot').textContent = dict.vDescVtot;
+      document.getElementById('v-desc-cunit').textContent = dict.vDescCunit;
+      document.getElementById('v-desc-margen').textContent = dict.vDescMargen;
+      document.getElementById('v-desc-cajas').textContent = dict.vDescCajas;
+      document.getElementById('v-desc-estatus').textContent = dict.vDescEstatus;
+
+      // Tab 2 Fields
+      document.getElementById('th-p-col').textContent = dict.thPCol;
+      document.getElementById('th-p-type').textContent = dict.thPType;
+      document.getElementById('th-p-req').textContent = dict.thPReq;
+      document.getElementById('th-p-desc').textContent = dict.thPDesc;
+      document.getElementById('th-p-sample').textContent = dict.thPSample;
+      document.getElementById('p-desc-anio').textContent = dict.pDescAnio;
+      document.getElementById('p-desc-semana').innerHTML = dict.pDescSemana.replace('YYYY-Www', '<code>YYYY-Www</code>');
+      document.getElementById('p-desc-prod').textContent = dict.pDescProd;
+      document.getElementById('p-desc-canal').textContent = dict.pDescCanal;
+      document.getElementById('p-desc-bot').textContent = dict.pDescBot;
+      document.getElementById('p-desc-vneta').textContent = dict.pDescVneta;
+      document.getElementById('p-desc-margen').textContent = dict.pDescMargen;
+      document.getElementById('p-desc-cajas').textContent = dict.pDescCajas;
+
+      // Tab 3 Fields
+      document.getElementById('th-c-col').textContent = dict.thCCol;
+      document.getElementById('th-c-type').textContent = dict.thCType;
+      document.getElementById('th-c-req').textContent = dict.thCReq;
+      document.getElementById('th-c-desc').textContent = dict.thCDesc;
+      document.getElementById('th-c-sample').textContent = dict.thCSample;
+      document.getElementById('c-desc-sku').textContent = dict.cDescSku;
+      document.getElementById('c-desc-prod').textContent = dict.cDescProd;
+      document.getElementById('c-desc-fam').textContent = dict.cDescFam;
+      document.getElementById('c-desc-ml').textContent = dict.cDescMl;
+      document.getElementById('c-desc-plist').textContent = dict.cDescPlist;
+      document.getElementById('c-desc-cogs').textContent = dict.cDescCogs;
+      document.getElementById('c-desc-activo').textContent = dict.cDescActivo;
+
+      // Channel Logics
+      document.getElementById('td-ch-1-logic').textContent = dict.tdCh1Logic;
+      document.getElementById('td-ch-2-logic').textContent = dict.tdCh2Logic;
+      document.getElementById('td-ch-3-logic').textContent = dict.tdCh3Logic;
+      document.getElementById('td-ch-4-logic').textContent = dict.tdCh4Logic;
+      document.getElementById('td-ch-5-logic').textContent = dict.tdCh5Logic;
+      document.getElementById('td-ch-6-logic').textContent = dict.tdCh6Logic;
+      document.getElementById('td-ch-7-logic').textContent = dict.tdCh7Logic;
+      document.getElementById('td-ch-8-logic').textContent = dict.tdCh8Logic;
+      document.getElementById('td-ch-9-logic').textContent = dict.tdCh9Logic;
+      document.getElementById('td-ch-10-logic').textContent = dict.tdCh10Logic;
+
+      document.getElementById('sample-header-title').textContent = dict.sampleHeaderTitle;
+      document.getElementById('sample-section-badge').textContent = dict.sampleSectionBadge;
+      document.getElementById('sample-lead-text').textContent = dict.sampleLeadText;
+      document.getElementById('s1-title').innerHTML = dict.s1Title.replace('sullivan_ventas_reales_ejemplo.csv', '<code>sullivan_ventas_reales_ejemplo.csv</code>');
+      document.getElementById('s1-note').innerHTML = dict.s1Note;
+      document.getElementById('s2-title').innerHTML = dict.s2Title.replace('sullivan_plan_semanal_ejemplo.csv', '<code>sullivan_plan_semanal_ejemplo.csv</code>');
+      document.getElementById('s2-note').innerHTML = dict.s2Note;
+      document.getElementById('s3-title').innerHTML = dict.s3Title.replace('sullivan_catalogo_sku_costos_ejemplo.csv', '<code>sullivan_catalogo_sku_costos_ejemplo.csv</code>');
+
+      document.getElementById('chan-header-title').textContent = dict.chanHeaderTitle;
+      document.getElementById('chan-section-badge').textContent = dict.chanSectionBadge;
+      document.getElementById('chan-lead-text').textContent = dict.chanLeadText;
+      document.getElementById('th-ch-c7').textContent = dict.thChC7;
+      document.getElementById('th-ch-target').textContent = dict.thChTarget;
+      document.getElementById('th-ch-rule').textContent = dict.thChRule;
+      document.getElementById('chan-tax-note').innerHTML = dict.chanTaxNote;
+
+      document.getElementById('act-header-title').textContent = dict.actHeaderTitle;
+      document.getElementById('act-section-badge').textContent = dict.actSectionBadge;
+      document.getElementById('act-s1-title').textContent = dict.actS1Title;
+      document.getElementById('act-s1-text').textContent = dict.actS1Text;
+      document.getElementById('act-s2-title').textContent = dict.actS2Title;
+      document.getElementById('act-s2-text').textContent = dict.actS2Text;
+      document.getElementById('act-s3-title').textContent = dict.actS3Title;
+      document.getElementById('act-s3-text').textContent = dict.actS3Text;
+      document.getElementById('act-s4-title').textContent = dict.actS4Title;
+      document.getElementById('act-s4-text').textContent = dict.actS4Text;
+
+      document.getElementById('footer-copy').innerHTML = dict.footerCopy;
+      document.getElementById('footer-top-link').innerHTML = dict.footerTopLink;
+    }
+
+    function switchTab(tabId, btn) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.file-tab-btn').forEach(el => el.classList.remove('active'));
+
+      document.getElementById(tabId).classList.add('active');
+      btn.classList.add('active');
+    }
+
+    function copySnippet(elementId, btn) {
+      const text = document.getElementById(elementId).innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        const originalText = btn.textContent;
+        btn.textContent = currentLang === 'en' ? "Copied!" : "¡Copiado!";
+        setTimeout(() => {
+          btn.textContent = originalText;
+        }, 2000);
+      });
+    }
+  </script>
+</body>
+</html>
